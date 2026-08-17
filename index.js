@@ -513,6 +513,18 @@ function pickMenu(items) {
   });
 }
 
+/** 等待任意按键（raw 模式） */
+function waitAnyKey() {
+  return new Promise((resolve) => {
+    const handler = (_s, key) => {
+      process.stdin.removeListener("keypress", handler);
+      resolve(key);
+    };
+    process.stdin.on("keypress", handler);
+    process.stdin.setRawMode(true);
+  });
+}
+
 /** 主菜单分发 */
 async function interactive() {
   if (!process.stdin.isTTY) {
@@ -541,15 +553,124 @@ async function interactive() {
       continue;
     }
     if (choice === "overview") {
-      process.stdout.write("\x1b[2J\x1b[H");
-      cliConfig();
-      const keys = loadKeys();
-      for (const [id, v] of Object.entries(keys)) {
-        console.log(`  ${pad(id, 12)} ${v.key ? paint(C.green, maskKey(v.key)) : paint(C.red, "解密失败")}${v.legacy ? paint(C.yellow, " (明文旧格式)") : ""}`);
+      try {
+        await runSettingsMenu({ region });
+      } catch (e) {
+        process.stdout.write("\x1b[2J\x1b[H");
+        console.log(paint(C.red, t("error", { msg: e.message })));
+        console.log(paint(C.dim, t("press_any_key")));
+        await waitAnyKey();
       }
-      console.log(`\n${paint(C.dim, t("wiz_done"))}`);
-      await new Promise((r) => setTimeout(r, 2500));
       continue;
+    }
+  }
+}
+
+/** 已配置概览与设置（交互式：语言 / 安装路径 / API Key 均可调） */
+async function runSettingsMenu({ region }) {
+  const listKeys = () => loadKeys();
+  for (;;) {
+    const cfg = loadConfig();
+    const keys = listKeys();
+    const compatDir = path.join(
+      process.env.AI_CLI_PLATFORM_HOME || path.join(os.homedir(), ".ai-cli-platform"),
+      "compat"
+    );
+    let compatCount = 0;
+    try {
+      compatCount = fs.readdirSync(compatDir).filter((f) => f.endsWith(".env")).length;
+    } catch {}
+    process.stdout.write("\x1b[2J\x1b[H");
+    console.log(paint(C.bold + C.cyan, `\n${t("settings_title")}\n`));
+    console.log(`  ${t("settings_lang")} ${getLang() === "en" ? "English" : "中文"}`);
+    console.log(`  ${t("settings_install_dir")} ${cfg.installDir || t("settings_default")}`);
+    console.log(`  ${t("settings_keys")} ${Object.keys(keys).length}`);
+    console.log(`  ${t("settings_compat")} ${compatCount}`);
+    console.log("");
+    const choice = await pickMenu([
+      { label: `1. ${t("settings_opt_lang")}`, value: "lang" },
+      { label: `2. ${t("settings_opt_dir")}`, value: "dir" },
+      { label: `3. ${t("settings_opt_keys")}`, value: "keys" },
+      { label: `4. ${t("settings_opt_back")}`, value: "back" },
+    ]);
+    if (!choice || choice === "back") return;
+
+    if (choice === "lang") {
+      const lang = await pickMenu([
+        { label: "中文", value: "zh" },
+        { label: "English", value: "en" },
+      ]);
+      if (lang) {
+        cliLang(lang);
+        await waitAnyKey();
+      }
+    } else if (choice === "dir") {
+      const dir = await promptKeys(t("settings_enter_dir"), { mask: false });
+      try {
+        process.stdin.setRawMode(true);
+      } catch {}
+      const cfg2 = loadConfig();
+      if (dir) cfg2.installDir = path.resolve(dir);
+      else delete cfg2.installDir;
+      saveConfig(cfg2);
+      console.log(
+        dir
+          ? paint(C.green, t("config_install_dir_set", { dir: path.resolve(dir) }))
+          : paint(C.green, t("settings_dir_reset"))
+      );
+      await waitAnyKey();
+    } else if (choice === "keys") {
+      await runKeysMenu();
+    }
+  }
+}
+
+/** API Key 管理子菜单 */
+async function runKeysMenu() {
+  for (;;) {
+    const keys = loadKeys();
+    process.stdout.write("\x1b[2J\x1b[H");
+    console.log(paint(C.bold + C.cyan, `\n${t("keys_title")}\n`));
+    for (const p of PROVIDERS) {
+      const k = keys[p.id]?.key;
+      console.log(
+        `  ${pad(p.id, 12)} ${p.name}  ${k ? paint(C.green, t("api_configured", { masked: maskKey(k) })) : paint(C.dim, t("api_no_key"))}`
+      );
+    }
+    console.log("");
+    const choice = await pickMenu([
+      { label: `1. ${t("keys_opt_add")}`, value: "add" },
+      { label: `2. ${t("keys_opt_remove")}`, value: "remove" },
+      { label: `3. ${t("keys_opt_back")}`, value: "back" },
+    ]);
+    if (!choice || choice === "back") return;
+    if (choice === "add") {
+      const provider = await pickMenu(
+        PROVIDERS.map((p) => ({ label: `${p.name}  ${keys[p.id]?.key ? paint(C.green, "✓ " + maskKey(keys[p.id].key)) : paint(C.dim, "未配置")}`, value: p.id }))
+      );
+      if (!provider) continue;
+      const key = await promptKeys(t("wiz_key_prompt", { provider: PROVIDER_BY_ID.get(provider).name }) + "\n", { mask: true });
+      if (!key) continue;
+      const all = loadKeys();
+      all[provider] = { key, addedAt: new Date().toISOString() };
+      const saved = saveKeys(all);
+      console.log(paint(C.green, t("api_added", { provider: PROVIDER_BY_ID.get(provider).name, masked: maskKey(key) })));
+      if (saved[provider] && !saved[provider].encrypted) console.log(paint(C.yellow, t("api_encrypt_failed")));
+      await waitAnyKey();
+    } else if (choice === "remove") {
+      const configured = PROVIDERS.filter((p) => keys[p.id]?.key);
+      if (!configured.length) {
+        console.log(paint(C.yellow, t("api_empty")));
+        await waitAnyKey();
+        continue;
+      }
+      const provider = await pickMenu(configured.map((p) => ({ label: `${p.name} (${maskKey(keys[p.id].key)})`, value: p.id })));
+      if (!provider) continue;
+      const all = loadKeys();
+      delete all[provider];
+      saveKeys(all);
+      console.log(paint(C.green, t("api_removed", { provider })));
+      await waitAnyKey();
     }
   }
 }
@@ -580,6 +701,7 @@ async function runToolListUI() {
 
   let selected = 0;
   let busy = false;
+  let suppressKeys = false; // 等待任意键返回时抑制导航
   let pendingConfirm = null; // { tool, resolve }
   let statusCache = new Map();
   let frameRows = []; // 上一帧的行，用于增量重绘
@@ -675,6 +797,10 @@ async function runToolListUI() {
       console.log(v.message);
     });
     busy = false;
+    suppressKeys = true;
+    console.log(paint(C.dim, `\n${t("press_any_key")}`));
+    await waitAnyKey();
+    suppressKeys = false;
     fullRender();
   };
 
@@ -728,6 +854,10 @@ async function runToolListUI() {
       console.log(`  ${t("info_desc")}  ${tool.note}\n`);
     });
     busy = false;
+    suppressKeys = true;
+    console.log(paint(C.dim, `\n${t("press_any_key")}`));
+    await waitAnyKey();
+    suppressKeys = false;
     fullRender();
   };
 
@@ -772,6 +902,7 @@ async function runToolListUI() {
       return;
     }
     if (busy) return;
+    if (suppressKeys) return; // 查看信息/验证结果等待按键时，忽略导航键
     if (key.name === "up") {
       selected = (selected - 1 + TOOLS.length) % TOOLS.length;
       paintFrame();
