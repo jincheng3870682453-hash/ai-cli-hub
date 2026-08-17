@@ -42,12 +42,13 @@ const {
   COMPAT_TARGETS,
   loadKeys,
   saveKeys,
-  buildCompatEnv,
+  buildCompat,
   targetSupportsProvider,
 } = require("./lib/api.js");
 const { detectRegion } = require("./lib/region.js");
 const { getNpmRegistry, getPipIndex, getNodeMirror, regionLabel } = require("./lib/sources.js");
 const { checkEnv, installGit, installPython } = require("./lib/env.js");
+const { runWizard } = require("./lib/wizard.js");
 
 const TTY = process.stdout.isTTY;
 
@@ -252,8 +253,11 @@ function cliApi(sub, arg1, arg2) {
     const p = PROVIDER_BY_ID.get(arg1);
     if (!p) return fail(t("api_not_found", { id: arg1 }));
     keys[arg1] = { key: arg2, addedAt: new Date().toISOString() };
-    saveKeys(keys);
+    const saved = saveKeys(keys);
     console.log(paint(C.green, t("api_added", { provider: p.name, masked: maskKey(arg2) })));
+    if (saved[arg1] && !saved[arg1].encrypted) {
+      console.log(paint(C.yellow, t("api_encrypt_failed")));
+    }
     return;
   }
   if (sub === "remove") {
@@ -287,10 +291,39 @@ function cliCompat(target, providerId) {
     if (support.reason === "protocol") {
       return fail(t("compat_protocol_unsupported", { target, provider: provider.name }));
     }
+    if (support.reason === "only") {
+      return fail(t("compat_only_providers", { target, allowed: (support.allowed || []).join(", ") }));
+    }
     return fail(t("compat_unsupported_target", { target, list: Object.keys(COMPAT_TARGETS).join(", ") }));
   }
-  const built = buildCompatEnv(target, providerId);
+  const built = buildCompat(target, providerId);
   if (!built) return fail(t("compat_unsupported_target", { target, list: Object.keys(COMPAT_TARGETS).join(", ") }));
+
+  if (built.kind === "cmd") {
+    console.log(paint(C.green, t("wiz_compat_cmd")));
+    console.log(`  ${paint(C.cyan, `  ${built.target.cmd}`)}`);
+    if (built.target.note) console.log(`  ${paint(C.dim, built.target.note)}`);
+    if (built.target.docs) console.log(`  ${t("info_homepage")} ${built.target.docs}`);
+    return;
+  }
+
+  if (built.kind === "file") {
+    try {
+      if (fs.existsSync(built.file)) {
+        fs.copyFileSync(built.file, `${built.file}.bak`);
+        console.log(paint(C.yellow, t("wiz_backup_written", { file: `${built.file}.bak` })));
+      }
+      fs.mkdirSync(path.dirname(built.file), { recursive: true });
+      fs.writeFileSync(built.file, JSON.stringify(built.content, null, 2));
+    } catch (e) {
+      return fail(t("error", { msg: e.message }));
+    }
+    console.log(paint(C.green, t("compat_generated", { target: built.target.name, provider: provider.name })));
+    console.log(`  ${t("compat_written", { file: built.file })}`);
+    if (built.target.docs) console.log(`  ${t("info_homepage")} ${built.target.docs}`);
+    return;
+  }
+
   try {
     fs.mkdirSync(path.dirname(built.file), { recursive: true });
     fs.writeFileSync(built.file, built.lines.join("\n") + "\n");
@@ -364,6 +397,16 @@ async function cliRegion() {
 
 /* ─────────────── 配置命令 ─────────────── */
 
+async function cliWizard() {
+  if (!process.stdin.isTTY) {
+    return fail(t("tty_warning"));
+  }
+  readline.emitKeypressEvents(process.stdin);
+  const region = await ensureRegion();
+  await runWizard({ region });
+  process.exit(0);
+}
+
 function cliLang(langArg) {
   const l = langArg === "en" ? "en" : "zh";
   const cfg = loadConfig();
@@ -421,12 +464,81 @@ module.exports = { decideConfirm };
 
 /* ─────────────────────────── 交互模式 ─────────────────────────── */
 
+/** 方向键选择列表（主菜单/通用） */
+function pickMenu(items) {
+  return new Promise((resolve) => {
+    let sel = 0;
+    const draw = () => {
+      process.stdout.write("\x1b[2J\x1b[H");
+      console.log(paint(C.cyan, LOGO));
+      console.log(`\n${paint(C.bold + C.cyan, t("menu_title", { version: PLATFORM_VERSION }))}\n`);
+      items.forEach((it, i) => {
+        console.log(` ${i === sel ? paint(C.cyan + C.bold, "❯") : " "} ${it.label}`);
+      });
+      console.log(`\n${paint(C.dim, t("menu_footer"))}`);
+    };
+    const handler = (_str, key) => {
+      if (key.name === "up") sel = (sel - 1 + items.length) % items.length;
+      else if (key.name === "down") sel = (sel + 1) % items.length;
+      else if (key.name === "return") {
+        process.stdin.removeListener("keypress", handler);
+        resolve(items[sel].value);
+      } else if (key.name === "q" || key.name === "escape" || (key.ctrl && key.name === "c")) {
+        process.stdin.removeListener("keypress", handler);
+        resolve(null);
+      }
+      draw();
+    };
+    process.stdin.on("keypress", handler);
+    draw();
+  });
+}
+
+/** 主菜单分发 */
 async function interactive() {
   if (!process.stdin.isTTY) {
     console.error(paint(C.yellow, t("tty_warning")));
     process.exit(1);
   }
+  readline.emitKeypressEvents(process.stdin);
+  const region = await ensureRegion();
+  for (;;) {
+    const choice = await pickMenu([
+      { label: `1. ${t("menu_option1")}`, value: "wizard" },
+      { label: `2. ${t("menu_option2")}`, value: "tools" },
+      { label: `3. ${t("menu_option3")}`, value: "overview" },
+    ]);
+    if (!choice) {
+      process.stdout.write("\x1b[2J\x1b[H");
+      console.log(paint(C.dim, t("bye")));
+      process.exit(0);
+    }
+    if (choice === "wizard") {
+      await runWizard({ region });
+      continue;
+    }
+    if (choice === "tools") {
+      await runToolListUI();
+      continue;
+    }
+    if (choice === "overview") {
+      process.stdout.write("\x1b[2J\x1b[H");
+      cliConfig();
+      const keys = loadKeys();
+      for (const [id, v] of Object.entries(keys)) {
+        console.log(`  ${pad(id, 12)} ${v.key ? paint(C.green, maskKey(v.key)) : paint(C.red, "解密失败")}${v.legacy ? paint(C.yellow, " (明文旧格式)") : ""}`);
+      }
+      console.log(`\n${paint(C.dim, t("wiz_done"))}`);
+      await new Promise((r) => setTimeout(r, 2500));
+      continue;
+    }
+  }
+}
 
+/** 工具列表界面（下载/拉取工具） */
+async function runToolListUI() {
+  await new Promise((resolve) => {
+    (async () => {
   const HIDE_CURSOR = "\x1b[?25l";
   const SHOW_CURSOR = "\x1b[?25h";
 
@@ -599,10 +711,9 @@ async function interactive() {
       process.stdin.setRawMode(false);
     } catch {}
     process.stdout.write("\x1b[2J\x1b[H" + SHOW_CURSOR);
-    console.log(paint(C.dim, t("bye")));
-    process.exit(0);
+    process.stdin.removeAllListeners("keypress");
+    resolve(); // 返回主菜单
   };
-  process.on("exit", () => process.stdout.write(SHOW_CURSOR));
 
   await refreshStatus();
   process.stdout.write("\x1b[2J\x1b[H" + HIDE_CURSOR);
@@ -643,6 +754,8 @@ async function interactive() {
     } else if (key.name === "q" || (key.ctrl && key.name === "c")) {
       exit();
     }
+  });
+    })().catch(() => resolve());
   });
 }
 
@@ -690,6 +803,8 @@ async function main() {
       return cliDoctor();
     case "--region":
       return cliRegion();
+    case "--wizard":
+      return cliWizard();
     case "--api":
       return cliApi(args[1], args[2], args[3]);
     case "--compat":

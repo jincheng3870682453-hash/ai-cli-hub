@@ -1,15 +1,13 @@
 # 🗺️ 需求待办（Roadmap）
 
-## ✅ 已完成（v0.2.0）
+## ✅ 已完成
 
-- [x] **1. 自定义下载 / 安装路径** — `--install-dir <dir>`（npm/pip 走 --prefix），配置持久化
-- [x] **2. 全程双语（中 / 英切换 + 汉化）** — `--lang zh|en` / 环境变量 `AI_CLI_LANG`，
-      全套界面（菜单、安装/卸载/备份/验证、兼容层）87 个文案键 zh/en 全覆盖
-- [x] **3. API Key 管理** — 调研收录 9 家主流提供商（DeepSeek/Kimi/智谱/OpenAI/Anthropic/
-      Gemini/Qwen/硅基流动/OpenRouter），`--api list|add|remove`
-- [x] **4. 兼容层** — `--compat <目标> --provider <id>`：OpenAI 兼容（codex/opencode/aider/
-      continue/qwen-code）+ Anthropic 兼容（claude-code，DeepSeek/Kimi/智谱提供 /anthropic 端点）
-- [x] **5. 发布到 GitHub** — 仓库 ai-cli-hub 已上线，README 含拉取方式/版本徽章/网址表/社区
+- [x] **v0.1.0** — 13 工具注册表（官方源核实防冒名）、版本拉取、交互菜单、卸载前备份
+- [x] **v0.2.0** — 中英双语、自定义安装路径、API Key 管理（9 家提供商）、兼容层、官方网址表
+- [x] **v0.2.1** — 环境自动检测/自动安装、国内/国外 IP 检测与镜像源自动切换、文档修复
+- [x] **v0.2.2** — API Key **DPAPI 加密存储**、模型目录全面化（9 家全模型）、
+      **三步引导向导**（提供商→模型→工具→自动装→自动适配）、13/13 工具适配矩阵
+      （环境变量/配置文件/自带配置界面三种适配方式）
 
 ## ⏳ 待办（未开工）
 
@@ -18,3 +16,5 @@
 - [ ] 一键安装便携版（打包 node.exe 的绿色版，类似 DeepSeek-CLI-Portable）
 - [ ] 自动更新检查（对比 GitHub 最新 release）
 - [ ] 卸载备份：可选压缩为 zip，支持备份恢复命令
+- [ ] 向导内做真实 API 连通性测试（用 key 调一次模型接口验证）
+

@@ -53,6 +53,27 @@ node index.js            # 交互式菜单（↑/↓ 选择，Enter 安装）
 > `启动安装平台.cmd`（自动找 Node，没有就自动下载便携版）。
 > 首次运行会自动检测网络区域（国内/国外）并切换合适的镜像源。
 
+## 🧭 主菜单（三步向导，零门槛）
+
+启动后是主菜单，三个入口：
+
+1. **引导配置**（推荐）：**选 API Key 提供商 → 输入 key（加密保存）→ 选模型 → 选工具 → 未装自动下载 → 自动生成兼容配置**
+   - 模型目录覆盖 9 家主流提供商（DeepSeek V4 Pro/Flash、Kimi K2.x、GLM-5.x、GPT-5.x、Claude Opus 4.x、Gemini 2.5、Qwen3…）
+   - 任意公司的 key 都能尝试接任意工具：兼容组合直接生成配置；不兼容组合给出官方文档与替代方案（如 OpenRouter 聚合）
+2. **下载 / 拉取工具**：工具列表界面（安装/验证/卸载/刷新）
+3. **已配置概览**：当前语言、安装路径、API Key 与兼容配置
+
+```powershell
+node index.js --wizard    # 直接进入引导向导
+```
+
+## 🔐 API Key 加密存储
+
+- Key 使用 **Windows DPAPI** 加密后落盘（`%USERPROFILE%\.ai-cli-platform\api-keys.json`），
+  密文仅本机当前用户可解——换机器/换用户无法解密
+- 加密失败（非 Windows / 无 PowerShell）时会明确警告并退化为明文
+- 兼容旧版明文格式：读取时自动识别
+
 ## 交互菜单快捷键
 
 | 键 | 功能 |
@@ -148,13 +169,17 @@ node index.js --api remove openai       # 删除
 ```powershell
 node index.js --compat codex --provider deepseek
 # → 生成 codex-deepseek.env，内含 OPENAI_API_KEY + OPENAI_BASE_URL
-#   即 DeepSeek 的 key 直接驱动 OpenAI 系产品（Codex / OpenCode / Aider / Continue / Qwen Code）
+#   即 DeepSeek 的 key 直接驱动 OpenAI 系产品（Codex / OpenCode / Aider / Continue / Qwen Code / Amp）
 ```
-- 支持目标：`codex` · `opencode` · `aider` · `claude-code` · `continue` · `qwen-code`
+- **13 个工具全部有适配方案**，三种适配方式自动选择：
+  - **环境变量**（`.env` 文件）：codex / opencode / aider / claude-code / continue / qwen-code / amp / gemini-cli / deepseek-cli
+  - **配置文件**（直接写入）：deep-code（`~/.deepcode/settings.json`，原文件自动备份 `.bak`）
+  - **自带配置界面**（给出命令）：kimi-code（`kimi /provider`）/ aiconn / 智谱助手
 - OpenAI 兼容提供商 → 生成 `OPENAI_API_KEY` + `OPENAI_BASE_URL`
 - Anthropic 兼容（`claude-code`）→ 生成 `ANTHROPIC_AUTH_TOKEN` + `ANTHROPIC_BASE_URL`
   （DeepSeek / Kimi / 智谱都提供 `/anthropic` 端点）
-- 生成的环境变量文件位于 `%USERPROFILE%\.ai-cli-platform\compat\`，按提示注入即可
+- 不兼容组合不会让你卡住：给出官方文档 + 替代方案（如 OpenRouter 一个 key 通吃所有协议）
+- 环境变量文件位于 `%USERPROFILE%\.ai-cli-platform\compat\`，按提示注入即可
 
 ## 支持的工具（13 个）
 
