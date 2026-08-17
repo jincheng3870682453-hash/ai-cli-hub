@@ -48,7 +48,7 @@ const {
 const { detectRegion } = require("./lib/region.js");
 const { getNpmRegistry, getPipIndex, getNodeMirror, regionLabel } = require("./lib/sources.js");
 const { checkEnv, installGit, installPython } = require("./lib/env.js");
-const { runWizard } = require("./lib/wizard.js");
+const { runWizard, promptKeys } = require("./lib/wizard.js");
 
 const TTY = process.stdout.isTTY;
 
@@ -81,18 +81,33 @@ try {
 async function cliList(args) {
   const useCache = args.includes("--offline");
   const region = await ensureRegion();
-  const versions = useCache ? cachedAll(TOOLS) : await refreshAll(TOOLS, region);
+  // 已安装的工具不联网拉版本，只显示本地版本
+  const installedIds = new Set(TOOLS.filter((t) => hasCommand(t.bin)).map((t) => t.id));
+  const toFetch = TOOLS.filter((t) => !installedIds.has(t.id));
+  const versions = useCache
+    ? cachedAll(toFetch)
+    : toFetch.length
+      ? await refreshAll(toFetch, region)
+      : {};
+  const localVersions = {};
+  await Promise.all(
+    TOOLS.filter((t) => installedIds.has(t.id)).map(async (t) => {
+      localVersions[t.id] = await binVersion(t.bin, t.verifyArgs);
+    })
+  );
   console.log(paint(C.cyan, LOGO));
   console.log(
     paint(C.bold + C.cyan, t("list_title", { version: PLATFORM_VERSION }) + "\n")
   );
   for (const tool of TOOLS) {
     const v = versions[tool.id];
-    const installed = hasCommand(tool.bin);
-    const mark = installed ? paint(C.green, t("list_installed")) : paint(C.dim, t("list_not_installed"));
-    const latest = v
-      ? `${v.version}${v.offline ? paint(C.yellow, t("list_cached")) : ""}`
-      : paint(C.red, t("list_unknown"));
+    const isInstalled = installedIds.has(tool.id);
+    const mark = isInstalled ? paint(C.green, t("list_installed")) : paint(C.dim, t("list_not_installed"));
+    const latest = isInstalled
+      ? paint(C.green, localVersions[tool.id] ? `${t("list_local")} ${localVersions[tool.id]}` : t("list_local"))
+      : v
+        ? `${v.version}${v.offline ? paint(C.yellow, t("list_cached")) : ""}`
+        : paint(C.red, t("list_unknown"));
     console.log(
       `  ${pad(tool.id, 14)} ${mark}  ${pad(tool.name, 22)} ${t("list_latest")}${pad(latest, 18)} ${paint(
         C.dim,
@@ -546,14 +561,16 @@ async function runToolListUI() {
   const HIDE_CURSOR = "\x1b[?25l";
   const SHOW_CURSOR = "\x1b[?25h";
 
-  // 1. 拉版本（失败自动用缓存）+ 检测网络区域
+  // 1. 已安装工具不联网拉版本；只拉未安装的
   process.stdout.write(paint(C.cyan, t("fetching_versions") + "\n"));
   const regionPromise = ensureRegion();
-  let versions = await refreshAll(TOOLS, await regionPromise);
+  const installedIds = new Set(TOOLS.filter((t) => hasCommand(t.bin)).map((t) => t.id));
+  const toFetch = TOOLS.filter((t) => !installedIds.has(t.id));
+  let versions = toFetch.length ? await refreshAll(toFetch, await regionPromise) : {};
   readline.cursorTo(process.stdout, 0);
   readline.clearLine(process.stdout, 0);
-  if (Object.values(versions).every((v) => v === null)) {
-    versions = cachedAll(TOOLS);
+  if (toFetch.length && Object.values(versions).every((v) => v === null)) {
+    versions = cachedAll(toFetch);
     if (Object.values(versions).every((v) => v === null)) {
       console.log(paint(C.yellow, t("offline_all")));
     } else {
@@ -589,10 +606,11 @@ async function runToolListUI() {
       logo: LOGO,
     });
 
-  /** 行级增量重绘：只更新变化的行，避免整屏清空导致的卡顿 */
+  /** 整帧覆盖重绘：回顶 + 重写全部行（不整屏清空，避免闪屏/卡顿；滚动错位可自愈） */
   const paintFrame = () => {
-    const { out, rows } = renderDiff(frameRows, buildRows());
-    if (out) process.stdout.write(out);
+    const rows = buildRows();
+    // 每行补空格到固定宽度 + \x1b[K 清尾，最后 \x1b[J 清掉残留行
+    process.stdout.write("\x1b[H" + rows.map((r) => r.padEnd(84) + "\x1b[K").join("\n") + "\x1b[J");
     frameRows = rows;
   };
 
@@ -621,12 +639,27 @@ async function runToolListUI() {
       return;
     }
     const cfg = loadConfig();
+    let installDir = cfg.installDir || "";
+    // 未设置过安装位置时，安装前询问一次（回车=默认）
+    if (!cfg.installDir) {
+      const loc = await promptKeys(t("wiz_install_loc_prompt"), { mask: false });
+      if (loc) {
+        cfg.installDir = path.resolve(loc);
+        saveConfig(cfg);
+        installDir = cfg.installDir;
+        console.log(paint(C.green, t("config_install_dir_set", { dir: installDir })));
+        await new Promise((r) => setTimeout(r, 900));
+      }
+      try {
+        process.stdin.setRawMode(true);
+      } catch {}
+    }
     const region = await ensureRegion();
     busy = true;
     fullRender();
     await runChild(() => {
       console.log(paint(C.cyan, "\n" + t("install_start", { name: tool.name })));
-      const res = installTool(tool, { stream: true, installDir: cfg.installDir, region });
+      const res = installTool(tool, { stream: true, installDir, region });
       console.log(res.message);
     });
     busy = false;
