@@ -15,7 +15,7 @@
 [![Dependencies](https://img.shields.io/badge/Dependencies-ZERO-4D6BFE)](package.json)
 [![Node](https://img.shields.io/badge/Node-%3E%3D18-4D6BFE)](https://nodejs.org)
 
-[功能特性](#-功能特性) · [快速开始](#-快速开始) · [使用指南](#-使用指南) · [支持的工具](#-支持的工具-13-个) · [安全](#-安全说明) · [FAQ](#-faq) · [贡献](#-贡献与社区)
+[功能特性](#-功能特性) · [架构](#-架构) · [快速开始](#-快速开始) · [使用指南](#-使用指南) · [支持的工具](#-支持的工具-13-个) · [卸载](#-卸载--先备份再确认才卸载) · [安全](#-安全说明) · [FAQ](#-faq) · [贡献](#-贡献与社区)
 
 </div>
 
@@ -45,6 +45,49 @@
  3. 已配置概览（API Key / 兼容配置）
 ❯4. 一键启动（选模型 → 选 Key → 选工具 → 启动）
 ```
+
+## 🏗️ 架构
+
+```mermaid
+flowchart TD
+    subgraph UI["界面层（交互菜单 + CLI 命令）"]
+        A["主菜单<br/>① 引导向导 ② 下载工具 ③ 设置概览 ④ 一键启动"]
+        B["命令行模式<br/>--list / --install / --compat / --doctor ..."]
+    end
+
+    subgraph CORE["核心服务层（lib/）"]
+        C["注册表 registry.js<br/>13 工具 · 官方源核验"]
+        D["版本拉取 versions.js<br/>npm/PyPI/GitHub + 离线缓存"]
+        E["区域检测 region.js + sources.js<br/>国内/国外 → 镜像源"]
+        F["环境检测 env.js<br/>缺什么自动装什么"]
+        G["API Key 管理 config.js + crypto.js<br/>DPAPI 加密落盘"]
+        H["兼容层 api.js<br/>任意 Key 接任意工具"]
+        I["安装/卸载 tools.js<br/>npm / pip / 一行脚本"]
+        J["备份 backup.js<br/>卸载前备份数据"]
+        K["i18n 双语 i18n.js<br/>zh / en 150+ 文案键"]
+        L["界面渲染 frame.js · 向导 wizard.js · 启动 launch.js"]
+    end
+
+    subgraph EXT["外部世界"]
+        M["官方源<br/>npm / PyPI / GitHub"]
+        N["国内镜像<br/>npmmirror / 清华 TUNA"]
+        O["目标 CLI 工具<br/>Codex / Kimi / Claude ..."]
+        P["本机数据<br/>配置 / 会话 / Key / 备份"]
+    end
+
+    A --> CORE
+    B --> CORE
+    D --> M
+    E --> N
+    I --> M
+    I --> N
+    I --> O
+    H --> O
+    J --> P
+    G --> P
+```
+
+**核心流程一句话**：界面层收指令 → 核心层按区域选源、拉版本、装工具、配 Key、生成兼容环境 → 目标 CLI 带着你的模型和 Key 启动；卸载前先备份数据。
 
 ## 🚀 快速开始
 
@@ -186,6 +229,39 @@ Anthropic 系工具走 `/anthropic` 兼容端点。真不兼容的组合会给�
 
 **Q：Key 会被上传吗？**
 不会。Key 只存在你本机（DPAPI 加密），平台不联网上传任何凭证。
+
+**Q：引导向导 / 一键启动 / 手动配置有什么区别？**
+- **引导向导**（主菜单 1）：把 Key、模型、工具一次配好，自动生成兼容配置——适合第一次用
+- **一键启动**（主菜单 4）：直接选模型 + Key + 工具，带着配置启动——适合日常快速开用
+- **手动配置**（`--compat` / `--api`）：命令行精确控制，适合脚本和高级用户
+
+**Q：卸载工具会删掉我的数据吗？**
+不会。卸载前自动把配置/会话/凭证备份到 `%USERPROFILE%\.ai-cli-platform\backups\`，备份失败会中止卸载。
+
+**Q：我的中文目录名会不会出问题？**
+不会。备份目录、Key 存储、兼容配置全部放在 `%USERPROFILE%\.ai-cli-platform\`（全 ASCII 路径），
+历史上出现过的中文路径乱码问题已彻底规避。
+
+**Q：如何卸载平台本身？**
+删除 `ai-cli-hub` 文件夹即可；如需彻底清理，再删除 `%USERPROFILE%\.ai-cli-platform\`
+（含备份、Key、兼容配置）。
+
+**Q：支持 macOS / Linux 吗？**
+当前以 Windows 为主（DPAPI 加密、启动器、winget 自愈均为 Windows 能力）；
+Node 标准库实现，非 Windows 可跑基本功能，但加密会退化为明文并警告。
+
+**Q：为什么有些已装工具不显示版本号？**
+版本读取失败时只显示"已装"（如权限受限或沙箱环境），不影响使用，可手动 `v` 验证。
+
+**Q：API Key 换电脑能用吗？**
+不能直接搬——DPAPI 密文绑定"本机 + 当前用户"，换机器需重新添加 Key（这是刻意的安全设计）。
+
+**Q：报错"发生错误: xxx"怎么办？**
+把完整报错贴到 [Issues](https://github.com/jincheng3870682453-hash/ai-cli-hub/issues)，或直接在对话里告诉我。
+
+**Q：想收录新工具 / 新模型？**
+工具：在 `registry.js` 加一条并核对官方源（README「新增工具」有 3 步）；
+模型：在 `lib/api.js` 的 `PROVIDERS` 里补充，或提 PR 由作者更新。
 
 ## 🤝 贡献与社区
 
