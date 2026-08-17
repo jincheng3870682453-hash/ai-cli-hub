@@ -49,6 +49,7 @@ const { detectRegion } = require("./lib/region.js");
 const { getNpmRegistry, getPipIndex, getNodeMirror, regionLabel } = require("./lib/sources.js");
 const { checkEnv, installGit, installPython } = require("./lib/env.js");
 const { runWizard, promptKeys } = require("./lib/wizard.js");
+const { runLaunch } = require("./lib/launch.js");
 
 const TTY = process.stdout.isTTY;
 
@@ -422,6 +423,16 @@ async function cliWizard() {
   process.exit(0);
 }
 
+async function cliLaunch() {
+  if (!process.stdin.isTTY) {
+    return fail(t("tty_warning"));
+  }
+  readline.emitKeypressEvents(process.stdin);
+  const region = await ensureRegion();
+  await runLaunch({ region });
+  process.exit(0);
+}
+
 function cliLang(langArg) {
   const l = langArg === "en" ? "en" : "zh";
   const cfg = loadConfig();
@@ -538,6 +549,7 @@ async function interactive() {
       { label: `1. ${t("menu_option1")}`, value: "wizard" },
       { label: `2. ${t("menu_option2")}`, value: "tools" },
       { label: `3. ${t("menu_option3")}`, value: "overview" },
+      { label: `4. ${t("menu_option4")}`, value: "launch" },
     ]);
     if (!choice) {
       process.stdout.write("\x1b[2J\x1b[H");
@@ -550,6 +562,17 @@ async function interactive() {
     }
     if (choice === "tools") {
       await runToolListUI();
+      continue;
+    }
+    if (choice === "launch") {
+      try {
+        await runLaunch({ region });
+      } catch (e) {
+        process.stdout.write("\x1b[2J\x1b[H");
+        console.log(paint(C.red, t("error", { msg: e.message })));
+        console.log(paint(C.dim, t("press_any_key")));
+        await waitAnyKey();
+      }
       continue;
     }
     if (choice === "overview") {
@@ -973,6 +996,8 @@ async function main() {
       return cliRegion();
     case "--wizard":
       return cliWizard();
+    case "--launch":
+      return cliLaunch();
     case "--api":
       return cliApi(args[1], args[2], args[3]);
     case "--compat":
@@ -997,6 +1022,8 @@ async function main() {
   node index.js --install-dir <dir> 自定义安装路径
   node index.js --api               管理 API Key（list / add <id> <key> / remove <id>）
   node index.js --compat <target> --provider <id>   兼容层：把 key 接入目标 CLI
+  node index.js --wizard            进入引导向导（提供商→模型→工具）
+  node index.js --launch            一键启动（选模型→选Key→选工具→启动）
   node index.js --doctor            环境与网络诊断（缺什么自动装什么）
   node index.js --region            查看网络区域（国内/国外）与所用镜像源
 工具: ${TOOLS.map((t) => t.id).join(", ")}`);
