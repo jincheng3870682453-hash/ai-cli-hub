@@ -1,10 +1,33 @@
-# 🐼 AI CLI 安装平台
+# 🪳 AI CLI 安装平台（ai-cli-hub）
+
+[![Version](https://img.shields.io/badge/Version-0.2.0-4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub)
+[![License](https://img.shields.io/badge/License-MIT-4D6BFE)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Windows-4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub)
 
 自动从**官方源**拉取各家终端编程工具的最新版本，一键安装、验证、**卸载（先备份数据）**。
+支持 **中/英双语切换**、**自定义安装路径**、**API Key 管理与兼容层**
+（任意 OpenAI/Anthropic 兼容 key 接入目标 CLI，例如 DeepSeek 的 key 直接接 Codex）。
 
 > 核心价值：**真伪校验**。npm 上的裸名包很多是冒名包（比如 `kimi-cli` 是第三方冒名的，
 > 官方的是 `@moonshot-ai/kimi-code`；`qwen-code`、`continue`、`goose` 的裸名包也都是无关项目）。
 > 本平台注册表里的每个包名/仓库都经过人工核对官方文档确认。
+
+## 📥 获取本项目（拉取）
+
+```powershell
+# 方式一：git clone（推荐）
+git clone https://github.com/jincheng3870682453-hash/ai-cli-hub.git
+cd ai-cli-hub
+
+# 方式二：下载 ZIP
+# 打开 https://github.com/jincheng3870682453-hash/ai-cli-hub → 绿色 [Code] 按钮 → Download ZIP
+```
+
+**零 npm 依赖**（纯 Node 标准库），clone 后直接运行，无需 `npm install`：
+
+```powershell
+node index.js            # 交互式菜单（↑/↓ 选择，Enter 安装）
+```
 
 ## 🪳 吉祥物：小强（原创，无商标风险）
 
@@ -58,32 +81,78 @@ node index.js            # 交互式菜单（↑/↓ 选择，Enter 安装）
 
 ```powershell
 node index.js --list                      # 列出工具 + 安装状态 + 最新版本
+node index.js --urls                      # 列出所有工具的官方网址（防假站）
 node index.js --refresh                   # 从官方源拉取全部最新版本
 node index.js --info deepseek-cli         # 单个工具详情
 node index.js --install kimi-code         # 非交互安装
 node index.js --verify codex              # 验证安装
 node index.js --uninstall opencode        # 卸载（先备份数据）
 node index.js --uninstall codex --no-backup   # 卸载（跳过备份）
+node index.js --version                   # 平台版本
 ```
+
+## 🌐 中 / 英双语
+
+```powershell
+node index.js --lang en        # 切到英文
+node index.js --lang zh        # 切回中文
+AI_CLI_LANG=en node index.js   # 或用环境变量
+```
+语言优先级：`--lang` 参数 > 环境变量 `AI_CLI_LANG` > 配置文件 > 系统区域（默认中文）。
+全套界面（菜单、安装/卸载/备份/验证提示、兼容层输出）均已汉化。
+
+## 📂 自定义安装路径
+
+```powershell
+node index.js --install-dir "D:\tools\ai-clis"
+```
+设置后，npm / pip 类工具会安装到该路径（`npm --prefix` / `pip --prefix`）；
+需自行把该路径加入 PATH。查看当前配置：`node index.js --config`。
+
+## 🔑 API Key 管理（调研了 9 家主流提供商）
+
+```powershell
+node index.js --api                     # 列出提供商 + key 配置状态
+node index.js --api add deepseek sk-xxx # 保存某个提供商的 key
+node index.js --api remove openai       # 删除
+```
+已收录提供商：`deepseek`（深度求索）· `moonshot`（Kimi）· `zhipu`（智谱 GLM）·
+`openai` · `anthropic` · `gemini`（Google）· `qwen`（阿里通义）·
+`siliconflow`（硅基流动）· `openrouter`。key 保存在
+`%USERPROFILE%\.ai-cli-platform\api-keys.json`（本机明文，注意保管）。
+
+## 🔌 兼容层：任意 key 接入目标 CLI
+
+```powershell
+node index.js --compat codex --provider deepseek
+# → 生成 codex-deepseek.env，内含 OPENAI_API_KEY + OPENAI_BASE_URL
+#   即 DeepSeek 的 key 直接驱动 OpenAI 系产品（Codex / OpenCode / Aider / Continue / Qwen Code）
+```
+- 支持目标：`codex` · `opencode` · `aider` · `claude-code` · `continue` · `qwen-code`
+- OpenAI 兼容提供商 → 生成 `OPENAI_API_KEY` + `OPENAI_BASE_URL`
+- Anthropic 兼容（`claude-code`）→ 生成 `ANTHROPIC_AUTH_TOKEN` + `ANTHROPIC_BASE_URL`
+  （DeepSeek / Kimi / 智谱都提供 `/anthropic` 端点）
+- 生成的环境变量文件位于 `%USERPROFILE%\.ai-cli-platform\compat\`，按提示注入即可
 
 ## 支持的工具（13 个）
 
-| id | 工具 | 来源 | 类型 | 数据目录（卸载前备份） |
+| id | 工具 | 官方网址 | 类型 | 数据目录（卸载前备份） |
 |---|---|---|---|---|
 | `deepseek-cli` | DeepSeek CLI（自研） | github.com/jincheng3870682453-hash/DeepSeek-CLI | 一行脚本 | ~/.dsh 等 |
-| `kimi-code` | Kimi Code | npm `@moonshot-ai/kimi-code` | npm -g | ~/.kimi-code |
-| `claude-code` | Claude Code | npm `@anthropic-ai/claude-code` | npm -g | ~/.claude |
-| `codex` | Codex | npm `@openai/codex` | npm -g | ~/.codex |
-| `opencode` | OpenCode | npm `opencode-ai` | npm -g | ~/.config/opencode |
-| `gemini-cli` | Gemini CLI | npm `@google/gemini-cli` | npm -g | ~/.gemini |
-| `qwen-code` | Qwen Code | npm `@qwen-code/qwen-code` | npm -g | ~/.qwen |
-| `deep-code` | Deep Code（DeepSeek V4） | npm `@vegamo/deepcode-cli` | npm -g | ~/.deepcode |
-| `amp` | Amp | npm `@ampcode/cli` | npm -g | ~/.amp |
-| `aider` | Aider | PyPI `aider-chat` | pip | ~/.aider.conf.yml |
-| `continue` | Continue CLI | npm `@continuedev/cli` | npm -g | ~/.continue |
-| `aiconn` | AIConn | npm `aiconn` | npm -g | ~/.aiconn |
-| `zhipu-helper` | 智谱 GLM 助手 | npm `@z_ai/coding-helper` | npm -g | — |
+| `kimi-code` | Kimi Code | kimi.com/code | npm -g | ~/.kimi-code |
+| `claude-code` | Claude Code | claude.com/claude-code | npm -g | ~/.claude |
+| `codex` | Codex | github.com/openai/codex | npm -g | ~/.codex |
+| `opencode` | OpenCode | opencode.ai | npm -g | ~/.config/opencode |
+| `gemini-cli` | Gemini CLI | github.com/google-gemini/gemini-cli | npm -g | ~/.gemini |
+| `qwen-code` | Qwen Code | github.com/QwenLM/qwen-code | npm -g | ~/.qwen |
+| `deep-code` | Deep Code（DeepSeek V4） | api-docs.deepseek.com/quick_start/agent_integrations/deepcode/ | npm -g | ~/.deepcode |
+| `amp` | Amp | ampcode.com | npm -g | ~/.amp |
+| `aider` | Aider | aider.chat | pip | ~/.aider.conf.yml |
+| `continue` | Continue CLI | github.com/continuedev/continue | npm -g | ~/.continue |
+| `aiconn` | AIConn | npmjs.com/package/aiconn | npm -g | ~/.aiconn |
+| `zhipu-helper` | 智谱 GLM 助手 | docs.bigmodel.cn/cn/coding-plan/extension/coding-tool-helper | npm -g | — |
 
+> 完整网址列表随时可查：`node index.js --urls`
 > 注 1：**DeepSeek Harness (dsh) 官方引擎不单列**——DeepSeek-CLI 安装脚本已自动内置
 > （`npm install -g @deepseek-ai/dsh`），且官方 Harness 本身是 Web 网页版而非终端工具。
 > 注 2：goose（Block 的开源 agent）官方安装脚本地址已失效（仓库已改名），安装方式未核实，暂未收录。
@@ -97,8 +166,15 @@ node index.js --uninstall codex --no-backup   # 卸载（跳过备份）
 
 - 安装会执行 `npm install -g ...`、`pip install ...` 或官方一行安装脚本（`irm ... | iex`）——与手动安装完全一致。
 - DeepSeek CLI 的安装脚本会下载便携 Node 并写入 `%LOCALAPPDATA%\DeepSeek-CLI`、全局安装 `@deepseek-ai/dsh`。
-- 卸载备份会复制配置/凭证到 `backups/`，仅保存在本机，请妥善保管、用完可删。
+- 卸载备份复制配置/凭证到 `%USERPROFILE%\.ai-cli-platform\backups\`，仅保存在本机，请妥善保管、用完可删。
+- API Key 以明文保存在 `%USERPROFILE%\.ai-cli-platform\api-keys.json`，**不要**提交到任何仓库。
 - 注册表是静态 JS（`registry.js`），新增工具 = 加一条记录；**添加前请先核对官方来源**。
+
+## 🌍 社区
+
+- 本仓库：<https://github.com/jincheng3870682453-hash/ai-cli-hub>（提 issue / PR / star ⭐）
+- 作者 GitHub：<https://github.com/jincheng3870682453-hash>
+- 姊妹项目 DeepSeek CLI：<https://github.com/jincheng3870682453-hash/DeepSeek-CLI>（基于 DeepSeek Harness 的终端 Agent）
 
 ## 新增工具（3 步）
 

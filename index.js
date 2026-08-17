@@ -2,16 +2,21 @@
 "use strict";
 
 /**
- * AI CLI 安装平台 — 终端菜单程序
+ * ai-cli-hub — AI CLI 安装平台（终端菜单程序）
  *
  * 用法：
- *   node index.js                   交互式菜单（方向键选择、回车安装）
- *   node index.js --list            列出工具与安装状态
- *   node index.js --refresh         拉取全部工具最新版本
- *   node index.js --info <id>       查看单个工具详情
- *   node index.js --install <id>    非交互安装
- *   node index.js --verify <id>     验证安装
- *   node index.js --uninstall <id>  卸载（先自动备份数据到 backups/，--no-backup 跳过）
+ *   node index.js                     交互式菜单（方向键选择、回车安装）
+ *   node index.js --list              列出工具与安装状态
+ *   node index.js --urls              列出所有工具的官方网址
+ *   node index.js --refresh           拉取全部工具最新版本
+ *   node index.js --info <id>         查看单个工具详情
+ *   node index.js --install <id>      非交互安装
+ *   node index.js --verify <id>       验证安装
+ *   node index.js --uninstall <id>    卸载（先自动备份数据，--no-backup 跳过）
+ *   node index.js --lang <zh|en>      切换中/英文
+ *   node index.js --install-dir <dir> 自定义安装路径
+ *   node index.js --api [...]         API Key 管理（list / add / remove）
+ *   node index.js --compat <target> --provider <id>   兼容层：把 key 接入目标 CLI
  */
 
 const readline = require("node:readline");
@@ -29,15 +34,35 @@ const {
 } = require("./lib/tools.js");
 const { backupTool } = require("./lib/backup.js");
 const { C, paint, pad, buildFrame, renderDiff } = require("./lib/frame.js");
+const { t, setLang, getLang, detectLang } = require("./lib/i18n.js");
+const { loadConfig, saveConfig, maskKey } = require("./lib/config.js");
+const {
+  PROVIDERS,
+  PROVIDER_BY_ID,
+  COMPAT_TARGETS,
+  loadKeys,
+  saveKeys,
+  buildCompatEnv,
+  targetSupportsProvider,
+} = require("./lib/api.js");
 
 const TTY = process.stdout.isTTY;
 
-/** 熊猫 logo（原创 ASCII 吉祥物，见 assets/logo.txt） */
+/** 平台自身版本号（来自 package.json） */
+const PLATFORM_VERSION = (() => {
+  try {
+    return require("./package.json").version;
+  } catch {
+    return "0.0.0";
+  }
+})();
+
+/** 小强 logo（原创 ASCII 吉祥物，见 assets/logo.txt） */
 let LOGO = "";
 try {
   LOGO = fs.readFileSync(path.join(__dirname, "assets", "logo.txt"), "utf8").replace(/\n$/, "");
 } catch {
-  LOGO = "🐼";
+  LOGO = "🪳";
 }
 
 /* ─────────────────────────── CLI 模式 ─────────────────────────── */
@@ -46,68 +71,87 @@ async function cliList(args) {
   const useCache = args.includes("--offline");
   const versions = useCache ? cachedAll(TOOLS) : await refreshAll(TOOLS);
   console.log(paint(C.cyan, LOGO));
-  console.log(paint(C.bold + C.cyan, "\nAI CLI 安装平台 — 工具清单\n"));
+  console.log(
+    paint(C.bold + C.cyan, t("list_title", { version: PLATFORM_VERSION }) + "\n")
+  );
   for (const tool of TOOLS) {
     const v = versions[tool.id];
     const installed = hasCommand(tool.bin);
-    const mark = installed ? paint(C.green, "✓ 已装") : paint(C.dim, "✗ 未装");
+    const mark = installed ? paint(C.green, t("list_installed")) : paint(C.dim, t("list_not_installed"));
     const latest = v
-      ? `${v.version}${v.offline ? paint(C.yellow, " (缓存)") : ""}`
-      : paint(C.red, "未知(离线)");
+      ? `${v.version}${v.offline ? paint(C.yellow, t("list_cached")) : ""}`
+      : paint(C.red, t("list_unknown"));
     console.log(
-      `  ${pad(tool.id, 14)} ${mark}  ${pad(tool.name, 22)} 最新:${pad(latest, 18)} ${paint(
+      `  ${pad(tool.id, 14)} ${mark}  ${pad(tool.name, 22)} ${t("list_latest")}${pad(latest, 18)} ${paint(
         C.dim,
         tool.vendor
       )}`
     );
   }
-  console.log(
-    `\n${paint(C.dim, "交互模式: node index.js  |  离线快速列表: node index.js --list --offline")}\n`
-  );
+  console.log(`\n${paint(C.dim, t("list_footer"))}\n`);
 }
 
 async function cliRefresh() {
-  console.log(paint(C.cyan, "正在从官方源拉取版本信息..."));
+  console.log(paint(C.cyan, t("fetching_versions")));
   const versions = await refreshAll(TOOLS);
   for (const tool of TOOLS) {
     const v = versions[tool.id];
     if (v) {
       console.log(
-        `  ${pad(tool.id, 14)} ${pad(v.version, 12)} ${v.offline ? paint(C.yellow, "(缓存)") : paint(C.green, "✓ 已更新")}  ${v.source}`
+        `  ${pad(tool.id, 14)} ${pad(v.version, 12)} ${v.offline ? paint(C.yellow, t("refresh_cached")) : paint(C.green, t("refresh_updated"))}  ${v.source}`
       );
     } else {
-      console.log(`  ${pad(tool.id, 14)} ${paint(C.red, "拉取失败(离线)")}`);
+      console.log(`  ${pad(tool.id, 14)} ${paint(C.red, t("refresh_failed"))}`);
     }
+  }
+}
+
+/** 列出所有工具的官方网址（避免用户搜到假站/冒名站） */
+async function cliUrls() {
+  console.log(paint(C.bold + C.cyan, t("urls_title", { version: PLATFORM_VERSION }) + "\n"));
+  for (const tool of TOOLS) {
+    const src =
+      tool.kind === "npm"
+        ? `npm: ${tool.pkg}`
+        : tool.kind === "pip"
+          ? `pip: ${tool.pkg}`
+          : `github: ${tool.repo}`;
+    console.log(`  ${pad(tool.id, 14)} ${pad(tool.name, 22)}`);
+    console.log(`                 ${paint(C.cyan, tool.homepage || t("urls_not_provided"))}`);
+    console.log(`                 ${t("urls_source", { src })}${paint(C.dim, "")}\n`);
   }
 }
 
 async function cliInfo(id) {
   const tool = BY_ID.get(id);
-  if (!tool) return fail(`未知工具: ${id}（可用: ${TOOLS.map((t) => t.id).join(", ")}）`);
+  if (!tool) return fail(t("unknown_tool", { id, list: TOOLS.map((x) => x.id).join(", ") }));
   const versions = await refreshAll([tool]);
   const v = versions[id];
   const installed = hasCommand(tool.bin);
   console.log(`\n${paint(C.bold + C.cyan, tool.name)}  ${paint(C.dim, tool.vendor)} ${paint(C.magenta, `[${tool.tag}]`)}`);
-  console.log(`  kind:      ${tool.kind === "npm" ? `npm · ${tool.pkg}` : tool.kind === "pip" ? `pip · ${tool.pkg}` : `ps1-oneliner · ${tool.repo}`}`);
-  console.log(`  命令:      ${tool.bin} ${(tool.verifyArgs || []).join(" ")}`);
-  console.log(`  最新版本:  ${v ? v.version + (v.offline ? " (缓存)" : "") : "未知(离线)"}`);
-  console.log(`  安装状态:  ${installed ? paint(C.green, "已安装") + (whereBin(tool.bin) ? ` @ ${whereBin(tool.bin)}` : "") : paint(C.dim, "未安装")}`);
+  console.log(`  ${t("info_kind")}  ${tool.kind === "npm" ? `npm · ${tool.pkg}` : tool.kind === "pip" ? `pip · ${tool.pkg}` : `ps1-oneliner · ${tool.repo}`}`);
+  console.log(`  ${t("info_cmd")}  ${tool.bin} ${(tool.verifyArgs || []).join(" ")}`);
+  console.log(`  ${t("info_latest")}  ${v ? v.version + (v.offline ? t("list_cached") : "") : t("list_unknown")}`);
+  console.log(
+    `  ${t("info_status")}  ${installed ? paint(C.green, t("info_installed")) + (whereBin(tool.bin) ? ` @ ${whereBin(tool.bin)}` : "") : paint(C.dim, t("info_not_installed"))}`
+  );
   if (tool.dataDirs && tool.dataDirs.length) {
-    console.log(`  数据目录:  ${tool.dataDirs.map((d) => d.path).join(", ")}（卸载前自动备份）`);
+    console.log(`  ${t("info_data_dirs")}  ${tool.dataDirs.map((d) => d.path).join(", ")}${t("info_backup_note")}`);
   }
-  if (tool.homepage) console.log(`  官网:      ${tool.homepage}`);
-  console.log(`  说明:      ${tool.note}\n`);
+  if (tool.homepage) console.log(`  ${t("info_homepage")}  ${tool.homepage}`);
+  console.log(`  ${t("info_desc")}  ${tool.note}\n`);
 }
 
 async function cliInstall(id) {
   const tool = BY_ID.get(id);
-  if (!tool) return fail(`未知工具: ${id}`);
+  if (!tool) return fail(t("unknown_tool", { id, list: TOOLS.map((x) => x.id).join(", ") }));
   if (hasCommand(tool.bin)) {
-    console.log(paint(C.yellow, `⚠️ ${tool.bin} 已在 PATH 上，跳过安装。`));
+    console.log(paint(C.yellow, t("install_skip", { bin: tool.bin })));
     return;
   }
-  console.log(paint(C.cyan, `开始安装 ${tool.name} ...`));
-  const res = installTool(tool, { stream: true });
+  const cfg = loadConfig();
+  console.log(paint(C.cyan, t("install_start", { name: tool.name })));
+  const res = installTool(tool, { stream: true, installDir: cfg.installDir });
   console.log(res.message);
   const v = await verifyTool(tool);
   console.log(v.message);
@@ -115,7 +159,7 @@ async function cliInstall(id) {
 
 async function cliVerify(id) {
   const tool = BY_ID.get(id);
-  if (!tool) return fail(`未知工具: ${id}`);
+  if (!tool) return fail(t("unknown_tool", { id, list: TOOLS.map((x) => x.id).join(", ") }));
   const v = await verifyTool(tool);
   console.log(v.message);
 }
@@ -126,37 +170,39 @@ async function cliVerify(id) {
  */
 function backupBeforeUninstall(tool, { quiet = false } = {}) {
   if (!tool.dataDirs || tool.dataDirs.length === 0) {
-    if (!quiet) console.log(paint(C.dim, `ℹ️ ${tool.name} 未登记用户数据目录，跳过备份。`));
+    if (!quiet) console.log(paint(C.dim, t("backup_no_data_dirs", { name: tool.name })));
     return true;
   }
   let result;
   try {
     result = backupTool(tool);
   } catch (e) {
-    console.log(paint(C.red, `❌ 备份 ${tool.name} 数据失败: ${e.message}`));
-    console.log(paint(C.yellow, "   为保护你的数据，已中止卸载。可手动备份后重试（或 --no-backup 跳过）。"));
+    console.log(paint(C.red, t("backup_failed", { name: tool.name, msg: e.message })));
+    console.log(paint(C.yellow, t("backup_abort")));
     return false;
   }
   if (result.saved.length === 0) {
     if (!quiet) {
-      console.log(paint(C.dim, `ℹ️ 未发现 ${tool.name} 的用户数据（已检查: ${result.missing.join(", ")}），无需备份。`));
+      console.log(
+        paint(C.dim, t("backup_none_found", { name: tool.name, dirs: result.missing.join(", ") }))
+      );
     }
     return true;
   }
-  console.log(paint(C.cyan, `📦 已备份 ${tool.name} 的用户数据 → ${result.dest}`));
+  console.log(paint(C.cyan, t("backup_done", { name: tool.name, dest: result.dest })));
   for (const s of result.saved) {
     console.log(`   ✓ ${s.path}${s.note ? `（${s.note}）` : ""}`);
   }
-  console.log(paint(C.yellow, "   ⚠️ 备份包含配置/凭证，请妥善保管，用完可删除。"));
+  console.log(paint(C.yellow, t("backup_credential_warn")));
   return true;
 }
 
 async function cliUninstall(id, args) {
   const tool = BY_ID.get(id);
-  if (!tool) return fail(`未知工具: ${id}`);
+  if (!tool) return fail(t("unknown_tool", { id, list: TOOLS.map((x) => x.id).join(", ") }));
   const noBackup = args.includes("--no-backup");
   if (!hasCommand(tool.bin)) {
-    console.log(paint(C.yellow, `⚠️ ${tool.bin} 未在 PATH 上，可能未安装或已是便携版，跳过卸载。`));
+    console.log(paint(C.yellow, t("uninstall_not_found", { bin: tool.bin })));
     return;
   }
   if (!noBackup) {
@@ -165,6 +211,120 @@ async function cliUninstall(id, args) {
   const res = uninstallTool(tool, { stream: true });
   console.log(res.message);
 }
+
+/* ─────────────── API Key 管理与兼容层 ─────────────── */
+
+function cliApi(sub, arg1, arg2) {
+  const keys = loadKeys();
+  if (!sub || sub === "list") {
+    console.log(paint(C.bold + C.cyan, t("api_title", { version: PLATFORM_VERSION }) + "\n"));
+    const any = Object.keys(keys).length > 0;
+    for (const p of PROVIDERS) {
+      const has = keys[p.id]?.key;
+      const status = has
+        ? paint(C.green, t("api_configured", { masked: maskKey(has) }))
+        : paint(C.dim, t("api_no_key"));
+      console.log(
+        `  ${pad(p.id, 12)} ${pad(p.name, 22)} ${status}`
+      );
+      console.log(`               ${paint(C.dim, p.consoleUrl)}`);
+    }
+    if (!any) console.log(`\n${paint(C.yellow, t("api_empty"))}`);
+    console.log(`\n${paint(C.dim, t("api_usage"))}`);
+    console.log(paint(C.dim, `${t("api_providers_hint", { list: PROVIDERS.map((p) => p.id).join(", ") })}`));
+    return;
+  }
+  if (sub === "add") {
+    if (!arg1 || !arg2) return fail(t("api_key_missing"));
+    const p = PROVIDER_BY_ID.get(arg1);
+    if (!p) return fail(t("api_not_found", { id: arg1 }));
+    keys[arg1] = { key: arg2, addedAt: new Date().toISOString() };
+    saveKeys(keys);
+    console.log(paint(C.green, t("api_added", { provider: p.name, masked: maskKey(arg2) })));
+    return;
+  }
+  if (sub === "remove") {
+    if (!arg1) return fail(t("api_not_found", { id: "" }));
+    if (!keys[arg1]) return fail(t("api_not_found", { id: arg1 }));
+    delete keys[arg1];
+    saveKeys(keys);
+    console.log(paint(C.green, t("api_removed", { provider: arg1 })));
+    return;
+  }
+  fail(t("unknown_flag", { flag: `--api ${sub}` }));
+}
+
+function cliCompat(target, providerId) {
+  const keys = loadKeys();
+  if (!target || target === "list") {
+    console.log(paint(C.bold + C.cyan, t("compat_title") + "\n"));
+    console.log(`  ${t("compat_targets", { list: Object.keys(COMPAT_TARGETS).join(", ") })}\n`);
+    console.log(`  ${paint(C.dim, t("compat_usage"))}`);
+    console.log(`  ${paint(C.dim, t("api_providers_hint", { list: PROVIDERS.map((p) => p.id).join(", ") }))}`);
+    return;
+  }
+  if (!providerId) return fail(t("compat_usage"));
+  const provider = PROVIDER_BY_ID.get(providerId);
+  if (!provider) return fail(t("api_not_found", { id: providerId }));
+  if (!keys[providerId]?.key) {
+    return fail(t("compat_provider_no_key", { provider: providerId }));
+  }
+  const support = targetSupportsProvider(target, provider);
+  if (!support.ok) {
+    if (support.reason === "protocol") {
+      return fail(t("compat_protocol_unsupported", { target, provider: provider.name }));
+    }
+    return fail(t("compat_unsupported_target", { target, list: Object.keys(COMPAT_TARGETS).join(", ") }));
+  }
+  const built = buildCompatEnv(target, providerId);
+  if (!built) return fail(t("compat_unsupported_target", { target, list: Object.keys(COMPAT_TARGETS).join(", ") }));
+  try {
+    fs.mkdirSync(path.dirname(built.file), { recursive: true });
+    fs.writeFileSync(built.file, built.lines.join("\n") + "\n");
+  } catch (e) {
+    return fail(t("error", { msg: e.message }));
+  }
+  console.log(paint(C.green, t("compat_generated", { target: built.target.name, provider: provider.name })));
+  console.log(`  ${t("compat_env_file", { file: built.file })}`);
+  for (const line of built.lines) console.log(`    ${paint(C.cyan, line)}`);
+  console.log(`  ${paint(C.dim, t("compat_written", { file: built.file }))}`);
+  console.log(`  ${paint(C.dim, t("compat_apply_hint", { file: built.file, k: "KEY" }))}`);
+  console.log(`  ${paint(C.dim, t("compat_note_env"))}`);
+}
+
+/* ─────────────── 配置命令 ─────────────── */
+
+function cliLang(langArg) {
+  const l = langArg === "en" ? "en" : "zh";
+  const cfg = loadConfig();
+  cfg.lang = l;
+  saveConfig(cfg);
+  setLang(l);
+  console.log(paint(C.green, t("config_lang_set", { lang: l })));
+}
+
+function cliInstallDir(dir) {
+  if (!dir) return fail(t("config_install_dir_set", { dir: "(空)" }));
+  const cfg = loadConfig();
+  cfg.installDir = path.resolve(dir);
+  saveConfig(cfg);
+  console.log(paint(C.green, t("config_install_dir_set", { dir: cfg.installDir })));
+  console.log(paint(C.yellow, t("config_install_dir_note")));
+}
+
+function cliConfig() {
+  const cfg = loadConfig();
+  const keys = loadKeys();
+  console.log(
+    t("config_show", {
+      lang: cfg.lang || getLang(),
+      dir: cfg.installDir || "（默认）",
+      keys: Object.keys(keys).length,
+    })
+  );
+}
+
+/* ─────────────── 通用 ─────────────── */
 
 function fail(msg) {
   console.error(paint(C.red, msg));
@@ -193,9 +353,7 @@ module.exports = { decideConfirm };
 
 async function interactive() {
   if (!process.stdin.isTTY) {
-    console.error(
-      paint(C.yellow, "⚠️ 交互模式需要 TTY 终端。非交互场景请用 --list / --install <id> 等参数。")
-    );
+    console.error(paint(C.yellow, t("tty_warning")));
     process.exit(1);
   }
 
@@ -203,16 +361,16 @@ async function interactive() {
   const SHOW_CURSOR = "\x1b[?25h";
 
   // 1. 拉版本（失败自动用缓存）
-  process.stdout.write(paint(C.cyan, "正在从官方源拉取版本信息...\n"));
+  process.stdout.write(paint(C.cyan, t("fetching_versions") + "\n"));
   let versions = await refreshAll(TOOLS);
   readline.cursorTo(process.stdout, 0);
   readline.clearLine(process.stdout, 0);
   if (Object.values(versions).every((v) => v === null)) {
     versions = cachedAll(TOOLS);
     if (Object.values(versions).every((v) => v === null)) {
-      console.log(paint(C.yellow, "⚠️ 完全离线，版本显示为「未知」。"));
+      console.log(paint(C.yellow, t("offline_all")));
     } else {
-      console.log(paint(C.yellow, "⚠️ 网络不可达，使用缓存版本信息。"));
+      console.log(paint(C.yellow, t("offline_cache")));
     }
   }
 
@@ -224,10 +382,10 @@ async function interactive() {
 
   const refreshStatus = async () => {
     await Promise.all(
-      TOOLS.map(async (t) => {
-        const installed = hasCommand(t.bin);
-        const version = installed ? await binVersion(t.bin, t.verifyArgs) : null;
-        statusCache.set(t.id, { installed, version });
+      TOOLS.map(async (tool) => {
+        const installed = hasCommand(tool.bin);
+        const version = installed ? await binVersion(tool.bin, tool.verifyArgs) : null;
+        statusCache.set(tool.id, { installed, version });
       })
     );
   };
@@ -270,16 +428,17 @@ async function interactive() {
 
   const doInstall = async (tool) => {
     if (hasCommand(tool.bin)) {
-      console.log(paint(C.yellow, `⚠️ ${tool.bin} 已在 PATH 上，跳过安装。`));
+      console.log(paint(C.yellow, t("install_skip", { bin: tool.bin })));
       await new Promise((r) => setTimeout(r, 1200));
       fullRender();
       return;
     }
+    const cfg = loadConfig();
     busy = true;
     fullRender();
     await runChild(() => {
-      console.log(paint(C.cyan, `\n开始安装 ${tool.name} ...`));
-      const res = installTool(tool, { stream: true });
+      console.log(paint(C.cyan, "\n" + t("install_start", { name: tool.name })));
+      const res = installTool(tool, { stream: true, installDir: cfg.installDir });
       console.log(res.message);
     });
     busy = false;
@@ -306,19 +465,19 @@ async function interactive() {
     }
     fullRender();
     if (tool.kind !== "npm") {
-      console.log(paint(C.yellow, `⚠️ ${tool.name} 不是 npm 安装的，请手动卸载（或删除便携目录）。`));
+      console.log(paint(C.yellow, t("uninstall_manual", { name: tool.name })));
       await new Promise((r) => setTimeout(r, 1500));
       fullRender();
       return;
     }
-    // 按键式确认（raw 模式下直接收 y/n，避免 readline 冲突）
+    // 按键式确认（w/n 制）
     const answer = await new Promise((resolve) => {
       pendingConfirm = { tool, resolve };
       paintFrame();
     });
     pendingConfirm = null;
     if (!answer) {
-      console.log(paint(C.yellow, "✋ 已取消卸载（未执行任何卸载）。"));
+      console.log(paint(C.yellow, t("uninstall_cancelled")));
       fullRender();
       return;
     }
@@ -339,13 +498,13 @@ async function interactive() {
     await runChild(() => {
       const v = versions[tool.id];
       console.log(`\n${paint(C.bold + C.cyan, tool.name)}  ${paint(C.dim, tool.vendor)} ${paint(C.magenta, `[${tool.tag}]`)}`);
-      console.log(`  命令:     ${tool.bin}`);
-      console.log(`  最新版本: ${v ? v.version + (v.offline ? " (缓存)" : "") : "未知(离线)"}`);
+      console.log(`  ${t("info_cmd")}  ${tool.bin}`);
+      console.log(`  ${t("info_latest")}  ${v ? v.version + (v.offline ? t("list_cached") : "") : t("list_unknown")}`);
       if (tool.dataDirs && tool.dataDirs.length) {
-        console.log(`  数据目录: ${tool.dataDirs.map((d) => d.path).join(", ")}（卸载前自动备份）`);
+        console.log(`  ${t("info_data_dirs")}  ${tool.dataDirs.map((d) => d.path).join(", ")}${t("info_backup_note")}`);
       }
-      if (tool.homepage) console.log(`  官网:     ${tool.homepage}`);
-      console.log(`  说明:     ${tool.note}\n`);
+      if (tool.homepage) console.log(`  ${t("info_homepage")}  ${tool.homepage}`);
+      console.log(`  ${t("info_desc")}  ${tool.note}\n`);
     });
     busy = false;
     fullRender();
@@ -355,9 +514,9 @@ async function interactive() {
     busy = true;
     fullRender();
     await runChild(async () => {
-      console.log(paint(C.cyan, "\n正在重新拉取版本..."));
+      console.log(paint(C.cyan, "\n" + t("fetching_versions")));
       versions = await refreshAll(TOOLS);
-      console.log(paint(C.green, "✅ 版本信息已更新"));
+      console.log(paint(C.green, t("refresh_done")));
     });
     busy = false;
     fullRender();
@@ -368,7 +527,7 @@ async function interactive() {
       process.stdin.setRawMode(false);
     } catch {}
     process.stdout.write("\x1b[2J\x1b[H" + SHOW_CURSOR);
-    console.log(paint(C.dim, "再见 👋"));
+    console.log(paint(C.dim, t("bye")));
     process.exit(0);
   };
   process.on("exit", () => process.stdout.write(SHOW_CURSOR));
@@ -419,6 +578,14 @@ async function interactive() {
 
 async function main() {
   const args = process.argv.slice(2);
+
+  // 语言：--lang 参数 > 环境变量 AI_CLI_LANG > 配置 > 系统区域（默认中文）
+  const langIdx = args.indexOf("--lang");
+  const langArg = langIdx >= 0 ? args[langIdx + 1] : null;
+  const cfgLang = loadConfig().lang;
+  const lang = langArg || process.env.AI_CLI_LANG || cfgLang || detectLang();
+  setLang(lang);
+
   const flag = args[0];
 
   if (!flag || flag.startsWith("-") === false) {
@@ -433,33 +600,54 @@ async function main() {
       return cliRefresh();
     case "--info":
       return cliInfo(args[1]);
+    case "--urls":
+      return cliUrls();
     case "--install":
       return cliInstall(args[1]);
     case "--verify":
       return cliVerify(args[1]);
     case "--uninstall":
       return cliUninstall(args[1], args.slice(2));
+    case "--lang":
+      return cliLang(args[1]);
+    case "--install-dir":
+      return cliInstallDir(args[1]);
+    case "--config":
+      return cliConfig();
+    case "--api":
+      return cliApi(args[1], args[2], args[3]);
+    case "--compat":
+      return cliCompat(args[1], args[3]); // --compat <target> --provider <id>
+    case "--version":
+    case "-v":
+      console.log(`ai-cli-hub v${PLATFORM_VERSION}`);
+      return;
     case "--help":
     case "-h":
-      console.log(`AI CLI 安装平台
+      console.log(`AI CLI 安装平台 v${PLATFORM_VERSION}
 用法:
-  node index.js                    交互式菜单
-  node index.js --list             列出工具与安装状态
-  node index.js --refresh          拉取全部工具最新版本
-  node index.js --info <id>        查看单个工具详情
-  node index.js --install <id>     非交互安装
-  node index.js --verify <id>      验证安装
-  node index.js --uninstall <id>   卸载（先自动备份数据到 backups/，加 --no-backup 跳过备份）
+  node index.js                     交互式菜单
+  node index.js --list              列出工具与安装状态
+  node index.js --urls              列出所有工具的官方网址
+  node index.js --refresh           拉取全部工具最新版本
+  node index.js --info <id>         查看单个工具详情
+  node index.js --install <id>      非交互安装
+  node index.js --verify <id>       验证安装
+  node index.js --uninstall <id>    卸载（先自动备份数据，加 --no-backup 跳过）
+  node index.js --lang <zh|en>      切换语言（中/英）
+  node index.js --install-dir <dir> 自定义安装路径
+  node index.js --api               管理 API Key（list / add <id> <key> / remove <id>）
+  node index.js --compat <target> --provider <id>   兼容层：把 key 接入目标 CLI
 工具: ${TOOLS.map((t) => t.id).join(", ")}`);
       return;
     default:
-      fail(`未知参数: ${flag}（--help 查看用法）`);
+      fail(t("unknown_flag", { flag }));
   }
 }
 
 if (require.main === module) {
   main().catch((e) => {
-    console.error(paint(C.red, `发生错误: ${e.message}`));
+    console.error(paint(C.red, t("error", { msg: e.message })));
     process.exit(1);
   });
 }

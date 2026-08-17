@@ -8,6 +8,7 @@ backups/
 # 测试残留
 *.tmp.js
 .test-backup/
+.test-home/
 
 # 系统
 .DS_Store
