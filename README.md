@@ -10,6 +10,7 @@
 一键安装、验证、卸载（先备份数据）、**任意 API Key 无缝接入任意工具**。
 
 [![Version](https://img.shields.io/badge/Version-0.2.3-4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub/releases)
+[![Tests](https://img.shields.io/github/actions/workflow/status/jincheng3870682453-hash/ai-cli-hub/test.yml?branch=master&label=Tests&logo=github&color=4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub/actions)
 [![License](https://img.shields.io/badge/License-MIT-4D6BFE)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub)
 [![Dependencies](https://img.shields.io/badge/Dependencies-ZERO-4D6BFE)](package.json)

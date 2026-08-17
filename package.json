@@ -14,7 +14,8 @@
   "scripts": {
     "start": "node index.js",
     "list": "node index.js --list",
-    "refresh": "node index.js --refresh"
+    "refresh": "node index.js --refresh",
+    "test": "node test/run-tests.js"
   },
   "repository": {
     "type": "git",
