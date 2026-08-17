@@ -1,3 +1,5 @@
+**简体中文** | [English](README.en.md)
+
 <div align="center">
 
 <img src="assets/logo.svg" width="110" alt="小强吉祥物" />
