@@ -21,6 +21,7 @@
 
 const readline = require("node:readline");
 const fs = require("node:fs");
+const os = require("node:os");
 const path = require("node:path");
 const { TOOLS, BY_ID } = require("./registry.js");
 const { refreshAll, cachedAll } = require("./lib/versions.js");
