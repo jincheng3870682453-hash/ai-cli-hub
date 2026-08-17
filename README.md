@@ -41,11 +41,17 @@ node index.js            # 交互式菜单（↑/↓ 选择，Enter 安装）
 ## 快速开始
 
 ```powershell
-cd "C:\Users\69215\Desktop\AI-CLI-安装平台"
+# 1. 拉取本项目（首次）
+git clone https://github.com/jincheng3870682453-hash/ai-cli-hub.git
+cd ai-cli-hub
+
+# 2. 直接运行（零依赖，无需 npm install）
 node index.js            # 交互式菜单（↑/↓ 选择，Enter 安装）
 ```
 
-双击 `启动安装平台.cmd` 也可以（自动找 Node）。
+> 没有 Node.js？平台会自动检测并在启动时引导安装；Windows 也可以直接双击
+> `启动安装平台.cmd`（自动找 Node，没有就自动下载便携版）。
+> 首次运行会自动检测网络区域（国内/国外）并切换合适的镜像源。
 
 ## 交互菜单快捷键
 
@@ -88,8 +94,24 @@ node index.js --install kimi-code         # 非交互安装
 node index.js --verify codex              # 验证安装
 node index.js --uninstall opencode        # 卸载（先备份数据）
 node index.js --uninstall codex --no-backup   # 卸载（跳过备份）
+node index.js --doctor                    # 环境与网络诊断（缺什么自动装什么）
+node index.js --region                    # 查看网络区域（国内/国外）与所用镜像源
 node index.js --version                   # 平台版本
 ```
+
+## 🔧 环境自动检测 + 国内/国外源自动切换
+
+平台会自动做两件事：
+
+1. **环境检测**（`--doctor`）：检查 Node.js / npm / git / python / pip 是否安装，
+   **缺什么自动装什么**——git / python 走 `winget` 自动安装；Node 缺失时
+   `启动安装平台.cmd` 会自动下载便携版（先试官方源，失败自动切国内镜像）。
+2. **网络区域检测**（`--region`）：自动识别你是国内还是国外 IP——
+   - **国内** → 自动用国内镜像：npm 走 `registry.npmmirror.com`（阿里）、
+     pip 走清华 TUNA、Node 下载走 npmmirror
+   - **国外** → 自动用官方源（npmjs / pypi.org / nodejs.org）
+
+无需任何手动配置，安装与版本拉取全程自动走对应源。
 
 ## 🌐 中 / 英双语
 

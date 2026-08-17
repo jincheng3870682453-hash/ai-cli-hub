@@ -45,8 +45,18 @@ const {
   buildCompatEnv,
   targetSupportsProvider,
 } = require("./lib/api.js");
+const { detectRegion } = require("./lib/region.js");
+const { getNpmRegistry, getPipIndex, getNodeMirror, regionLabel } = require("./lib/sources.js");
+const { checkEnv, installGit, installPython } = require("./lib/env.js");
 
 const TTY = process.stdout.isTTY;
+
+/** 区域检测（进程内共享一次，带磁盘缓存） */
+let regionPromise = null;
+function ensureRegion() {
+  if (!regionPromise) regionPromise = detectRegion();
+  return regionPromise;
+}
 
 /** 平台自身版本号（来自 package.json） */
 const PLATFORM_VERSION = (() => {
@@ -69,7 +79,8 @@ try {
 
 async function cliList(args) {
   const useCache = args.includes("--offline");
-  const versions = useCache ? cachedAll(TOOLS) : await refreshAll(TOOLS);
+  const region = await ensureRegion();
+  const versions = useCache ? cachedAll(TOOLS) : await refreshAll(TOOLS, region);
   console.log(paint(C.cyan, LOGO));
   console.log(
     paint(C.bold + C.cyan, t("list_title", { version: PLATFORM_VERSION }) + "\n")
@@ -93,7 +104,8 @@ async function cliList(args) {
 
 async function cliRefresh() {
   console.log(paint(C.cyan, t("fetching_versions")));
-  const versions = await refreshAll(TOOLS);
+  const region = await ensureRegion();
+  const versions = await refreshAll(TOOLS, region);
   for (const tool of TOOLS) {
     const v = versions[tool.id];
     if (v) {
@@ -150,8 +162,9 @@ async function cliInstall(id) {
     return;
   }
   const cfg = loadConfig();
+  const region = await ensureRegion();
   console.log(paint(C.cyan, t("install_start", { name: tool.name })));
-  const res = installTool(tool, { stream: true, installDir: cfg.installDir });
+  const res = installTool(tool, { stream: true, installDir: cfg.installDir, region });
   console.log(res.message);
   const v = await verifyTool(tool);
   console.log(v.message);
@@ -292,6 +305,63 @@ function cliCompat(target, providerId) {
   console.log(`  ${paint(C.dim, t("compat_note_env"))}`);
 }
 
+/* ─────────────── 环境与网络诊断 ─────────────── */
+
+async function cliDoctor() {
+  console.log(paint(C.bold + C.cyan, t("doctor_title", { version: PLATFORM_VERSION }) + "\n"));
+
+  // 1. 环境检测
+  console.log(paint(C.bold, t("doctor_env_header")));
+  const env = checkEnv();
+  const rows = [
+    ["Node.js", env.node, "https://nodejs.org"],
+    ["npm", env.npm, "https://www.npmjs.com"],
+    ["git", env.git, "https://git-scm.com"],
+    ["python", env.python, "https://www.python.org"],
+    ["pip", env.pip, "https://pypi.org"],
+  ];
+  for (const [name, info, hint] of rows) {
+    const status = info.ok ? paint(C.green, t("env_ok")) : paint(C.red, t("env_missing"));
+    console.log(`  ${pad(name, 10)} ${status}${info.version ? paint(C.dim, `  ${info.version}`) : ""}`);
+    // 缺什么自动装什么
+    if (!info.ok && name === "git") {
+      console.log(`  ${paint(C.yellow, t("env_install_start", { name: "git" }))}`);
+      console.log(installGit() ? `  ${paint(C.green, t("env_install_ok", { name: "git" }))}` : `  ${paint(C.red, t("env_install_fail", { name: "git", hint }))}`);
+    } else if (!info.ok && name === "python") {
+      console.log(`  ${paint(C.yellow, t("env_install_start", { name: "python" }))}`);
+      console.log(installPython() ? `  ${paint(C.green, t("env_install_ok", { name: "python" }))}` : `  ${paint(C.red, t("env_install_fail", { name: "python", hint }))}`);
+    } else if (!info.ok) {
+      console.log(`  ${paint(C.dim, `  ${hint}`)}`);
+    }
+  }
+
+  // 2. 网络区域
+  console.log(`\n${paint(C.cyan, t("env_detecting_region"))}`);
+  const region = await ensureRegion();
+  if (region) {
+    console.log(paint(C.green, t("doctor_region", { region, label: regionLabel(region) })));
+    console.log(
+      paint(C.dim, t("doctor_sources", { npm: getNpmRegistry(region), pip: getPipIndex(region), node: getNodeMirror(region) }))
+    );
+  } else {
+    console.log(paint(C.yellow, t("doctor_region_unknown")));
+  }
+  console.log(`\n${paint(C.dim, t("doctor_auto_hint"))}\n`);
+}
+
+async function cliRegion() {
+  console.log(paint(C.cyan, t("env_detecting_region")));
+  const region = await ensureRegion();
+  if (region) {
+    console.log(paint(C.green, t("doctor_region", { region, label: regionLabel(region) })));
+    console.log(
+      paint(C.dim, t("doctor_sources", { npm: getNpmRegistry(region), pip: getPipIndex(region), node: getNodeMirror(region) }))
+    );
+  } else {
+    console.log(paint(C.yellow, t("doctor_region_unknown")));
+  }
+}
+
 /* ─────────────── 配置命令 ─────────────── */
 
 function cliLang(langArg) {
@@ -360,9 +430,10 @@ async function interactive() {
   const HIDE_CURSOR = "\x1b[?25l";
   const SHOW_CURSOR = "\x1b[?25h";
 
-  // 1. 拉版本（失败自动用缓存）
+  // 1. 拉版本（失败自动用缓存）+ 检测网络区域
   process.stdout.write(paint(C.cyan, t("fetching_versions") + "\n"));
-  let versions = await refreshAll(TOOLS);
+  const regionPromise = ensureRegion();
+  let versions = await refreshAll(TOOLS, await regionPromise);
   readline.cursorTo(process.stdout, 0);
   readline.clearLine(process.stdout, 0);
   if (Object.values(versions).every((v) => v === null)) {
@@ -434,11 +505,12 @@ async function interactive() {
       return;
     }
     const cfg = loadConfig();
+    const region = await ensureRegion();
     busy = true;
     fullRender();
     await runChild(() => {
       console.log(paint(C.cyan, "\n" + t("install_start", { name: tool.name })));
-      const res = installTool(tool, { stream: true, installDir: cfg.installDir });
+      const res = installTool(tool, { stream: true, installDir: cfg.installDir, region });
       console.log(res.message);
     });
     busy = false;
@@ -614,6 +686,10 @@ async function main() {
       return cliInstallDir(args[1]);
     case "--config":
       return cliConfig();
+    case "--doctor":
+      return cliDoctor();
+    case "--region":
+      return cliRegion();
     case "--api":
       return cliApi(args[1], args[2], args[3]);
     case "--compat":
@@ -638,6 +714,8 @@ async function main() {
   node index.js --install-dir <dir> 自定义安装路径
   node index.js --api               管理 API Key（list / add <id> <key> / remove <id>）
   node index.js --compat <target> --provider <id>   兼容层：把 key 接入目标 CLI
+  node index.js --doctor            环境与网络诊断（缺什么自动装什么）
+  node index.js --region            查看网络区域（国内/国外）与所用镜像源
 工具: ${TOOLS.map((t) => t.id).join(", ")}`);
       return;
     default:
