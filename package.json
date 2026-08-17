@@ -1,0 +1,19 @@
+{
+  "name": "ai-cli-install-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI CLI 安装平台 — 自动从官方源拉取并一键安装各家的终端编程工具（Kimi Code / Claude Code / Codex / OpenCode / Gemini CLI / Deep Code / DeepSeek CLI 等）",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "bin": {
+    "install-platform": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "list": "node index.js --list",
+    "refresh": "node index.js --refresh"
+  }
+}

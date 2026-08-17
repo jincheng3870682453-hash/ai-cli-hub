@@ -1,0 +1,18 @@
+# 依赖
+node_modules/
+
+# 本地缓存 / 数据
+.version-cache.json
+backups/
+
+# 测试残留
+*.tmp.js
+.test-backup/
+
+# 系统
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 日志
+*.log

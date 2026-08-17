@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" width="440" height="440" role="img" aria-label="AI CLI 安装平台 — 小强（蟑螂）吉祥物">
+  <title>AI CLI Install Platform mascot — XIAOQIANG the cockroach (original)</title>
+  <desc>An original flat-design cockroach mascot for the AI CLI install platform — a generic animal, not derived from any brand mascot.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf3e2"/>
+      <stop offset="1" stop-color="#f0e2c4"/>
+    </linearGradient>
+    <linearGradient id="shell" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7a5233"/>
+      <stop offset="1" stop-color="#4e321d"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="220" height="220" rx="36" fill="url(#bg)"/>
+
+  <!-- antennae (long sweeping) -->
+  <path d="M78 70 Q 46 26 24 14" stroke="#3a2715" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <path d="M142 70 Q 174 26 196 14" stroke="#3a2715" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+
+  <!-- six legs: 3 pairs -->
+  <path d="M74 100 Q 38 88 22 76" stroke="#3a2715" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <path d="M72 128 Q 32 126 18 122" stroke="#3a2715" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <path d="M74 156 Q 38 166 22 178" stroke="#3a2715" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <path d="M146 100 Q 182 88 198 76" stroke="#3a2715" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <path d="M148 128 Q 188 126 202 122" stroke="#3a2715" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <path d="M146 156 Q 182 166 198 178" stroke="#3a2715" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+
+  <!-- head -->
+  <ellipse cx="110" cy="76" rx="38" ry="26" fill="url(#shell)" stroke="#2f1f10" stroke-width="3"/>
+  <!-- eyes -->
+  <circle cx="96" cy="70" r="6" fill="#ffffff"/>
+  <circle cx="124" cy="70" r="6" fill="#ffffff"/>
+  <circle cx="97" cy="69" r="2.5" fill="#2f1f10"/>
+  <circle cx="125" cy="69" r="2.5" fill="#2f1f10"/>
+
+  <!-- pronotum seam -->
+  <path d="M74 84 Q 110 98 146 84" stroke="#2f1f10" stroke-width="2.5" fill="none"/>
+
+  <!-- body (abdomen): fat & wide -->
+  <path d="M74 90 Q 58 140 84 172 Q 110 186 136 172 Q 162 140 146 90 Z" fill="url(#shell)" stroke="#2f1f10" stroke-width="3"/>
+  <!-- wing seam down the middle -->
+  <line x1="110" y1="94" x2="110" y2="168" stroke="#2f1f10" stroke-width="2.5" stroke-dasharray="4 4"/>
+
+  <!-- cerci (tail feelers) -->
+  <path d="M100 172 L 92 192" stroke="#3a2715" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <path d="M120 172 L 128 192" stroke="#3a2715" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+
+  <!-- tiny terminal window it carries -->
+  <rect x="86" y="112" width="48" height="30" rx="6" fill="#ffffff" stroke="#2f1f10" stroke-width="2.5"/>
+  <circle cx="92" cy="120" r="2.4" fill="#ff5f57"/>
+  <circle cx="99" cy="120" r="2.4" fill="#febc2e"/>
+  <circle cx="106" cy="120" r="2.4" fill="#28c840"/>
+  <text x="92" y="135" font-family="Consolas, Menlo, monospace" font-size="12" font-weight="bold" fill="#2f1f10">&gt;_</text>
+</svg>
