@@ -477,19 +477,22 @@ function pickMenu(items) {
       });
       console.log(`\n${paint(C.dim, t("menu_footer"))}`);
     };
+    const done = (value) => {
+      try {
+        process.stdin.setRawMode(false);
+      } catch {}
+      process.stdin.removeListener("keypress", handler);
+      resolve(value);
+    };
     const handler = (_str, key) => {
       if (key.name === "up") sel = (sel - 1 + items.length) % items.length;
       else if (key.name === "down") sel = (sel + 1) % items.length;
-      else if (key.name === "return") {
-        process.stdin.removeListener("keypress", handler);
-        resolve(items[sel].value);
-      } else if (key.name === "q" || key.name === "escape" || (key.ctrl && key.name === "c")) {
-        process.stdin.removeListener("keypress", handler);
-        resolve(null);
-      }
+      else if (key.name === "return") return done(items[sel].value);
+      else if (key.name === "q" || key.name === "escape" || (key.ctrl && key.name === "c")) return done(null);
       draw();
     };
     process.stdin.on("keypress", handler);
+    process.stdin.setRawMode(true); // 方向键必须 raw 模式才产生 keypress
     draw();
   });
 }
