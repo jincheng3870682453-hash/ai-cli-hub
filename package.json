@@ -1,8 +1,8 @@
 {
-  "name": "ai-cli-install-platform",
+  "name": "ai-cli-hub",
   "version": "0.1.0",
   "private": true,
-  "description": "AI CLI 安装平台 — 自动从官方源拉取并一键安装各家的终端编程工具（Kimi Code / Claude Code / Codex / OpenCode / Gemini CLI / Deep Code / DeepSeek CLI 等）",
+  "description": "One-click install platform for AI coding CLIs — official sources, verified, safe (Kimi Code, Claude Code, Codex, OpenCode, Gemini CLI, Qwen Code, Deep Code, Aider...).",
   "license": "MIT",
   "type": "commonjs",
   "engines": {
@@ -15,5 +15,9 @@
     "start": "node index.js",
     "list": "node index.js --list",
     "refresh": "node index.js --refresh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jincheng3870682453-hash/ai-cli-hub.git"
   }
 }
