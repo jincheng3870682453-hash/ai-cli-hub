@@ -264,6 +264,14 @@ Node 标准库实现，非 Windows 可跑基本功能，但加密会退化为明
 工具：在 `registry.js` 加一条并核对官方源（README「新增工具」有 3 步）；
 模型：在 `lib/api.js` 的 `PROVIDERS` 里补充，或提 PR 由作者更新。
 
+## 🧪 测试与 CI
+
+- 单元测试套件：`node test/run-tests.js`（42 项，CI 安全——纯逻辑、不联网、不碰密钥）
+  覆盖 i18n 键完整性、注册表/适配矩阵、卸载确认、平台/架构映射、兼容层、镜像源、备份模块
+- **GitHub Actions 自动跑**：每次 push / PR 在 **Windows + Linux × Node 18/20/22** 六种组合下跑全部测试
+  （`.github/workflows/test.yml`），徽章实时显示状态
+- 想加测试：往 `test/run-tests.js` 里加一个 `check(...)` 即可
+
 ## 🤝 贡献与社区
 
 - 本仓库：[github.com/jincheng3870682453-hash/ai-cli-hub](https://github.com/jincheng3870682453-hash/ai-cli-hub)（提 Issue / PR / Star ⭐）
