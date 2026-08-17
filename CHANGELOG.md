@@ -3,6 +3,26 @@
 本项目所有值得记录的版本变更。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.2.3] - 2026-08-17
+
+### ✨ 新增
+- **架构自适应**：便携 Node 下载自动检测平台/架构（win-x64 / win-arm64 / darwin-arm64 / linux-x64 / arm64 / armv7l），不再写死 win-x64；启动器 `.cmd` 按 `%PROCESSOR_ARCHITECTURE%` 检测 ARM64
+- **一键启动**（主菜单第 4 项 + `--launch`）：选模型 → 选 Key → 选工具 → 注入环境后直接启动，退出自动返回主菜单；启动参数自动携带 `--model`
+
+### 🐛 修复
+- 主菜单方向键失效（缺 raw 模式）
+- API Key 输入框按 `q` 无法退出 → 统一退出键 **Ctrl+Q**（全界面）
+- 工具列表偶现重复行/幽灵行（帧渲染改整帧覆盖重绘，自愈错位）
+- 已安装工具重复联网拉版本 → 已装工具只显示本地版本，不再联网
+- `i`/`v` 查看结果被立即重绘盖掉 → 打印后等任意键返回
+- 已配置概览闪退 / `os is not defined`（缺 `node:os` 导入）
+- 一键启动"启动错误"：启动前完全交出终端（移除按键监听 + 暂停 stdin），并传递所选模型
+- 设置概览无法改语言/路径/Key → 改为交互式设置菜单
+
+### 📝 文档
+- README 全面重写（Hero 区 + 徽章 + TOC + 特性表 + 界面预览 + FAQ 12 问 + 架构图 mermaid）
+- 新增 CHANGELOG.md（Keep a Changelog 格式）
+
 ## [0.2.2] - 2026-08-17
 
 ### 🎉 上线
@@ -62,6 +82,7 @@
 ---
 
 [unreleased]: https://github.com/jincheng3870682453-hash/ai-cli-hub/compare/master...HEAD
+[0.2.3]: https://github.com/jincheng3870682453-hash/ai-cli-hub/releases/tag/v0.2.3
 [0.2.2]: https://github.com/jincheng3870682453-hash/ai-cli-hub/releases/tag/v0.2.2
 [0.2.1]: https://github.com/jincheng3870682453-hash/ai-cli-hub/releases/tag/v0.2.1
 [0.2.0]: https://github.com/jincheng3870682453-hash/ai-cli-hub/releases/tag/v0.2.0
