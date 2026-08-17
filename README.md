@@ -1,236 +1,204 @@
+<div align="center">
+
+<img src="assets/logo.svg" width="110" alt="小强吉祥物" />
+
 # 🪳 AI CLI 安装平台（ai-cli-hub）
 
-[![Version](https://img.shields.io/badge/Version-0.2.0-4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub)
+**像小强一样，打不死、到处都能装。**
+
+一个自动从**官方源**拉取各家 AI 终端编程工具的安装平台：
+一键安装、验证、卸载（先备份数据）、**任意 API Key 无缝接入任意工具**。
+
+[![Version](https://img.shields.io/badge/Version-0.2.2-4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub/releases)
 [![License](https://img.shields.io/badge/License-MIT-4D6BFE)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub)
+[![Dependencies](https://img.shields.io/badge/Dependencies-ZERO-4D6BFE)](package.json)
+[![Node](https://img.shields.io/badge/Node-%3E%3D18-4D6BFE)](https://nodejs.org)
 
-自动从**官方源**拉取各家终端编程工具的最新版本，一键安装、验证、**卸载（先备份数据）**。
-支持 **中/英双语切换**、**自定义安装路径**、**API Key 管理与兼容层**
-（任意 OpenAI/Anthropic 兼容 key 接入目标 CLI，例如 DeepSeek 的 key 直接接 Codex）。
+[功能特性](#-功能特性) · [快速开始](#-快速开始) · [使用指南](#-使用指南) · [支持的工具](#-支持的工具-13-个) · [安全](#-安全说明) · [FAQ](#-faq) · [贡献](#-贡献与社区)
 
-> 核心价值：**真伪校验**。npm 上的裸名包很多是冒名包（比如 `kimi-cli` 是第三方冒名的，
-> 官方的是 `@moonshot-ai/kimi-code`；`qwen-code`、`continue`、`goose` 的裸名包也都是无关项目）。
-> 本平台注册表里的每个包名/仓库都经过人工核对官方文档确认。
+</div>
 
-## 📥 获取本项目（拉取）
+---
+
+## ✨ 功能特性
+
+| | | |
+|---|---|---|
+| 🛡️ **真伪校验** | 注册表所有包名/仓库**人工核对官方文档**，拒绝冒名包（`kimi-cli`≠`@moonshot-ai/kimi-code`） | 零依赖 |
+| 🔑 **API Key 加密存储** | Windows **DPAPI** 加密落盘，仅本机可解 | 9 家提供商 |
+| 🔌 **万能兼容层** | **任意公司的 Key 接任意工具**（OpenAI/Anthropic 协议自动适配，如 DeepSeek Key 直接驱动 Codex） | 13/13 工具全覆盖 |
+| 🧭 **三步引导向导** | 选提供商 → 输 Key → 选模型（54 个）→ 选工具 → 自动装 + 自动配 | 零门槛 |
+| 🚀 **一键启动** | 选模型 → 选 Key → 选工具 → **带着你的配置直接启动** | 退出自动返回 |
+| 🌐 **中/英双语** | 全套界面 150+ 文案键 zh/en 全覆盖，`--lang` 一键切换 | 汉化友好 |
+| 🧪 **环境自愈** | 检测 Node/npm/git/python，缺什么自动装什么；Node 缺失自动下载便携版 | — |
+| 🗺️ **国内/国外源自动切换** | 国内→npmmirror/清华 TUNA，国外→官方源，全程零配置 | 快又稳 |
+| 🗑️ **卸载先备份** | 卸载前自动备份配置/会话/凭证，失败则中止卸载 | 数据安全 |
+
+## 🖥️ 界面预览
+
+```text
+🪳 AI CLI 安装平台 v0.2.2 — 主菜单
+
+ 1. 引导配置（API Key → 模型 → 工具，自动适配）
+ 2. 下载 / 拉取工具（工具列表）
+ 3. 已配置概览（API Key / 兼容配置）
+❯4. 一键启动（选模型 → 选 Key → 选工具 → 启动）
+```
+
+## 🚀 快速开始
+
+**前置**：Windows + Node.js ≥ 18（没有 Node？双击 `启动安装平台.cmd` 会自动下载便携版）。
 
 ```powershell
-# 方式一：git clone（推荐）
+# 1. 拉取本项目（零 npm 依赖，clone 后直接跑，无需 npm install）
 git clone https://github.com/jincheng3870682453-hash/ai-cli-hub.git
 cd ai-cli-hub
 
-# 方式二：下载 ZIP
-# 打开 https://github.com/jincheng3870682453-hash/ai-cli-hub → 绿色 [Code] 按钮 → Download ZIP
+# 2. 运行
+node index.js
 ```
 
-**零 npm 依赖**（纯 Node 标准库），clone 后直接运行，无需 `npm install`：
+首次运行会自动检测**网络区域（国内/国外）**并切换合适的镜像源。
 
-```powershell
-node index.js            # 交互式菜单（↑/↓ 选择，Enter 安装）
-```
+## 🧭 使用指南
 
-## 🪳 吉祥物：小强（原创，无商标风险）
+主菜单四个入口：
 
-平台吉祥物是一只**横着爬的胖小强**（蟑螂）——宽扁俯视造型：两根长触角、大眼睛、
-胖胖的甲壳、三对腿（见 `assets/logo.txt` ASCII 版 / `assets/logo.svg` 矢量版）。
-
-> 为什么是小强？因为安装平台就该像小强一样：**打不死、到处都能装** 😄
-> 蟑螂是通用动物形象，**不是任何公司/产品的吉祥物或标志**，不涉及 DeepSeek、
-> Kimi、Claude 等任何品牌形象，可放心使用。
-
-## 快速开始
-
-```powershell
-# 1. 拉取本项目（首次）
-git clone https://github.com/jincheng3870682453-hash/ai-cli-hub.git
-cd ai-cli-hub
-
-# 2. 直接运行（零依赖，无需 npm install）
-node index.js            # 交互式菜单（↑/↓ 选择，Enter 安装）
-```
-
-> 没有 Node.js？平台会自动检测并在启动时引导安装；Windows 也可以直接双击
-> `启动安装平台.cmd`（自动找 Node，没有就自动下载便携版）。
-> 首次运行会自动检测网络区域（国内/国外）并切换合适的镜像源。
-
-## 🧭 主菜单（三步向导，零门槛）
-
-启动后是主菜单，三个入口：
-
-1. **引导配置**（推荐）：**选 API Key 提供商 → 输入 key（加密保存）→ 选模型 → 选工具 → 未装自动下载 → 自动生成兼容配置**
-   - 模型目录覆盖 9 家主流提供商（DeepSeek V4 Pro/Flash、Kimi K2.x、GLM-5.x、GPT-5.x、Claude Opus 4.x、Gemini 2.5、Qwen3…）
-   - 任意公司的 key 都能尝试接任意工具：兼容组合直接生成配置；不兼容组合给出官方文档与替代方案（如 OpenRouter 聚合）
-2. **下载 / 拉取工具**：工具列表界面（安装/验证/卸载/刷新）
-3. **已配置概览**：当前语言、安装路径、API Key 与兼容配置
-
-```powershell
-node index.js --wizard    # 直接进入引导向导
-```
-
-## 🔐 API Key 加密存储
-
-- Key 使用 **Windows DPAPI** 加密后落盘（`%USERPROFILE%\.ai-cli-platform\api-keys.json`），
-  密文仅本机当前用户可解——换机器/换用户无法解密
-- 加密失败（非 Windows / 无 PowerShell）时会明确警告并退化为明文
-- 兼容旧版明文格式：读取时自动识别
-
-## 交互菜单快捷键
+1. **引导配置**（推荐入门）：选 **API Key 提供商 → 输入 Key（加密保存）→ 选模型 → 选工具 → 未装自动下载 → 自动生成兼容配置**
+2. **下载 / 拉取工具**：工具列表界面（`↑/↓` 选择，`Enter` 安装，`u` 卸载，`i` 详情）
+3. **已配置概览**：交互式设置——切换语言 / 修改安装路径 / 管理 API Key
+4. **一键启动**：选模型 → 选 Key → 选工具 → 直接带着配置启动目标 CLI
 
 | 键 | 功能 |
 |---|---|
-| `↑` / `↓` | 选择工具（**行级增量渲染，流畅不卡顿**） |
-| `Enter` | 安装选中的工具 |
-| `v` | 验证选中工具（where + --version） |
-| `r` | 重新拉取版本 |
-| `u` | 卸载（**先备份数据 → 按键确认 y/n → 才卸载**） |
-| `i` | 查看工具详情与说明 |
+| `↑` / `↓` / `Enter` | 选择 / 确认 |
+| `i` / `v` | 查看详情 / 验证 |
+| `u` | 卸载（先备份 → `w` 确认 / `n` 取消） |
 | `q` / `Ctrl+Q` / `Ctrl+C` | 退出 / 返回上一级 |
 
-> 输入 API Key 等场景：`Ctrl+C` / `Ctrl+Q` / `Esc` 取消输入。
-
-## 卸载 = 先备份，再确认，才卸载
-
-按 `u` 或 `--uninstall` 时，平台会先把该工具的用户数据目录
-（配置 / 会话 / 凭证，见注册表 `dataDirs`）复制到备份目录。
-
-- **备份位置**：`%USERPROFILE%\.ai-cli-platform\backups\<工具id>-<时间戳>\`
-  （全 ASCII 路径，避免中文目录名在某些终端下被编码乱码化；可用环境变量
-  `AI_CLI_PLATFORM_BACKUP_DIR` 自定义位置）
-- 备份失败（文件占用/权限）会**中止卸载**，保护你的数据
-- 交互模式确认是 **w / n 制（防误触）**：
-  - 按 **`w`**（小写）→ 确认卸载
-  - 按 **`n`**（小写）→ 取消卸载
-  - `Esc` / `Ctrl+C` → 退出（特殊键，不提醒）
-  - **其他任何键**（含大写 W/N、回车、空格等）→ **只提醒一次「请按 w 或者 n」**，
-    不做任何操作，等你按正确的键
-- 命令行模式：默认自动备份后卸载；加 `--no-backup` 跳过备份
-- 备份包含 API Key 等凭证，请妥善保管、用完可删
-
-## 命令行模式（脚本/CI 友好）
+### 命令行模式（脚本/CI 友好）
 
 ```powershell
-node index.js --list                      # 列出工具 + 安装状态 + 最新版本
-node index.js --urls                      # 列出所有工具的官方网址（防假站）
-node index.js --refresh                   # 从官方源拉取全部最新版本
-node index.js --info deepseek-cli         # 单个工具详情
-node index.js --install kimi-code         # 非交互安装
-node index.js --verify codex              # 验证安装
-node index.js --uninstall opencode        # 卸载（先备份数据）
-node index.js --uninstall codex --no-backup   # 卸载（跳过备份）
+node index.js --list                      # 工具清单 + 安装状态（已装工具显示本地版本，不联网）
+node index.js --urls                      # 所有工具官方网址（防假站）
+node index.js --wizard                    # 直接进入引导向导
+node index.js --launch                    # 一键启动
+node index.js --api                       # API Key 管理（list / add <id> <key> / remove <id>）
+node index.js --compat codex --provider deepseek   # 兼容层：DeepSeek Key 接 Codex
 node index.js --doctor                    # 环境与网络诊断（缺什么自动装什么）
-node index.js --region                    # 查看网络区域（国内/国外）与所用镜像源
-node index.js --version                   # 平台版本
+node index.js --region                    # 查看网络区域与所用镜像源
+node index.js --install-dir "D:\tools"    # 自定义安装路径
+node index.js --lang en                   # 切换英文
+node index.js --version                   # 版本
 ```
 
-## 🔧 环境自动检测 + 国内/国外源自动切换
-
-平台会自动做两件事：
-
-1. **环境检测**（`--doctor`）：检查 Node.js / npm / git / python / pip 是否安装，
-   **缺什么自动装什么**——git / python 走 `winget` 自动安装；Node 缺失时
-   `启动安装平台.cmd` 会自动下载便携版（先试官方源，失败自动切国内镜像）。
-2. **网络区域检测**（`--region`）：自动识别你是国内还是国外 IP——
-   - **国内** → 自动用国内镜像：npm 走 `registry.npmmirror.com`（阿里）、
-     pip 走清华 TUNA、Node 下载走 npmmirror
-   - **国外** → 自动用官方源（npmjs / pypi.org / nodejs.org）
-
-无需任何手动配置，安装与版本拉取全程自动走对应源。
-
-## 🌐 中 / 英双语
+## 🔑 API Key 管理（9 家主流提供商）
 
 ```powershell
-node index.js --lang en        # 切到英文
-node index.js --lang zh        # 切回中文
-AI_CLI_LANG=en node index.js   # 或用环境变量
-```
-语言优先级：`--lang` 参数 > 环境变量 `AI_CLI_LANG` > 配置文件 > 系统区域（默认中文）。
-全套界面（菜单、安装/卸载/备份/验证提示、兼容层输出）均已汉化。
-
-## 📂 自定义安装路径
-
-```powershell
-node index.js --install-dir "D:\tools\ai-clis"
-```
-设置后，npm / pip 类工具会安装到该路径（`npm --prefix` / `pip --prefix`）；
-需自行把该路径加入 PATH。查看当前配置：`node index.js --config`。
-
-## 🔑 API Key 管理（调研了 9 家主流提供商）
-
-```powershell
-node index.js --api                     # 列出提供商 + key 配置状态
-node index.js --api add deepseek sk-xxx # 保存某个提供商的 key
+node index.js --api                     # 列出提供商 + key 状态
+node index.js --api add deepseek sk-xxx # 保存（DPAPI 加密）
 node index.js --api remove openai       # 删除
 ```
-已收录提供商：`deepseek`（深度求索）· `moonshot`（Kimi）· `zhipu`（智谱 GLM）·
-`openai` · `anthropic` · `gemini`（Google）· `qwen`（阿里通义）·
-`siliconflow`（硅基流动）· `openrouter`。key 保存在
-`%USERPROFILE%\.ai-cli-platform\api-keys.json`（本机明文，注意保管）。
 
-## 🔌 兼容层：任意 key 接入目标 CLI
+收录提供商：`deepseek`（深度求索）· `moonshot`（Kimi）· `zhipu`（智谱 GLM）· `openai` ·
+`anthropic` · `gemini`（Google）· `qwen`（阿里通义）· `siliconflow`（硅基流动）· `openrouter`（聚合）。
+
+模型目录覆盖 54 个模型：DeepSeek V4 Pro/Flash、Kimi K2.x、GLM-5.x、GPT-5.x、
+Claude Opus 4.x、Gemini 2.5、Qwen3…（模型名以各平台控制台为准）。
+
+> 🔐 Key 使用 **Windows DPAPI** 加密后落盘（`%USERPROFILE%\.ai-cli-platform\api-keys.json`），
+> 密文仅本机当前用户可解；加密失败会明确警告并退化为明文。
+
+## 🔌 兼容层：任意 Key 接任意工具
 
 ```powershell
 node index.js --compat codex --provider deepseek
-# → 生成 codex-deepseek.env，内含 OPENAI_API_KEY + OPENAI_BASE_URL
-#   即 DeepSeek 的 key 直接驱动 OpenAI 系产品（Codex / OpenCode / Aider / Continue / Qwen Code / Amp）
+# → 生成 codex-deepseek.env：OPENAI_API_KEY + OPENAI_BASE_URL
+#   即 DeepSeek 的 Key 直接驱动 Codex / OpenCode / Aider / Continue / Qwen Code / Amp
 ```
-- **13 个工具全部有适配方案**，三种适配方式自动选择：
-  - **环境变量**（`.env` 文件）：codex / opencode / aider / claude-code / continue / qwen-code / amp / gemini-cli / deepseek-cli
-  - **配置文件**（直接写入）：deep-code（`~/.deepcode/settings.json`，原文件自动备份 `.bak`）
-  - **自带配置界面**（给出命令）：kimi-code（`kimi /provider`）/ aiconn / 智谱助手
-- OpenAI 兼容提供商 → 生成 `OPENAI_API_KEY` + `OPENAI_BASE_URL`
-- Anthropic 兼容（`claude-code`）→ 生成 `ANTHROPIC_AUTH_TOKEN` + `ANTHROPIC_BASE_URL`
-  （DeepSeek / Kimi / 智谱都提供 `/anthropic` 端点）
-- 不兼容组合不会让你卡住：给出官方文档 + 替代方案（如 OpenRouter 一个 key 通吃所有协议）
-- 环境变量文件位于 `%USERPROFILE%\.ai-cli-platform\compat\`，按提示注入即可
+
+13 个工具全部有适配方案，三种方式自动选择：
+
+- **环境变量文件**（`.env`）：codex / opencode / aider / claude-code / continue / qwen-code / amp / gemini-cli / deepseek-cli
+- **配置文件**（直接写入）：deep-code（`~/.deepcode/settings.json`，原文件自动备份 `.bak`）
+- **自带配置界面**（给出命令）：kimi-code（`kimi /provider`）/ aiconn / 智谱助手
+
+Anthropic 协议（claude-code）自动走 `/anthropic` 兼容端点（DeepSeek / Kimi / 智谱均提供）。
+不兼容组合给出官方文档 + 替代方案（如 OpenRouter 一个 Key 通吃所有协议），绝不让你卡住。
+
+## 🗑️ 卸载 = 先备份，再确认，才卸载
+
+- 卸载前自动把配置/会话/凭证备份到 `%USERPROFILE%\.ai-cli-platform\backups\`
+- 备份失败（文件占用/权限）**中止卸载**，保护数据
+- 交互确认 **w/n 制**：`w` 确认、`n` 取消、其他键只提醒一次（防误触）
 
 ## 支持的工具（13 个）
 
-| id | 工具 | 官方网址 | 类型 | 数据目录（卸载前备份） |
-|---|---|---|---|---|
-| `deepseek-cli` | DeepSeek CLI（自研） | github.com/jincheng3870682453-hash/DeepSeek-CLI | 一行脚本 | ~/.dsh 等 |
-| `kimi-code` | Kimi Code | kimi.com/code | npm -g | ~/.kimi-code |
-| `claude-code` | Claude Code | claude.com/claude-code | npm -g | ~/.claude |
-| `codex` | Codex | github.com/openai/codex | npm -g | ~/.codex |
-| `opencode` | OpenCode | opencode.ai | npm -g | ~/.config/opencode |
-| `gemini-cli` | Gemini CLI | github.com/google-gemini/gemini-cli | npm -g | ~/.gemini |
-| `qwen-code` | Qwen Code | github.com/QwenLM/qwen-code | npm -g | ~/.qwen |
-| `deep-code` | Deep Code（DeepSeek V4） | api-docs.deepseek.com/quick_start/agent_integrations/deepcode/ | npm -g | ~/.deepcode |
-| `amp` | Amp | ampcode.com | npm -g | ~/.amp |
-| `aider` | Aider | aider.chat | pip | ~/.aider.conf.yml |
-| `continue` | Continue CLI | github.com/continuedev/continue | npm -g | ~/.continue |
-| `aiconn` | AIConn | npmjs.com/package/aiconn | npm -g | ~/.aiconn |
-| `zhipu-helper` | 智谱 GLM 助手 | docs.bigmodel.cn/cn/coding-plan/extension/coding-tool-helper | npm -g | — |
+| id | 工具 | 官方网址 | 类型 |
+|---|---|---|---|
+| `deepseek-cli` | DeepSeek CLI（自研） | github.com/jincheng3870682453-hash/DeepSeek-CLI | 一行脚本 |
+| `kimi-code` | Kimi Code | kimi.com/code | npm -g |
+| `claude-code` | Claude Code | claude.com/claude-code | npm -g |
+| `codex` | Codex | github.com/openai/codex | npm -g |
+| `opencode` | OpenCode | opencode.ai | npm -g |
+| `gemini-cli` | Gemini CLI | github.com/google-gemini/gemini-cli | npm -g |
+| `qwen-code` | Qwen Code | github.com/QwenLM/qwen-code | npm -g |
+| `deep-code` | Deep Code（DeepSeek V4） | api-docs.deepseek.com/quick_start/agent_integrations/deepcode/ | npm -g |
+| `amp` | Amp | ampcode.com | npm -g |
+| `aider` | Aider | aider.chat | pip |
+| `continue` | Continue CLI | github.com/continuedev/continue | npm -g |
+| `aiconn` | AIConn | npmjs.com/package/aiconn | npm -g |
+| `zhipu-helper` | 智谱 GLM 助手 | docs.bigmodel.cn/cn/coding-plan/extension/coding-tool-helper | npm -g |
 
-> 完整网址列表随时可查：`node index.js --urls`
-> 注 1：**DeepSeek Harness (dsh) 官方引擎不单列**——DeepSeek-CLI 安装脚本已自动内置
-> （`npm install -g @deepseek-ai/dsh`），且官方 Harness 本身是 Web 网页版而非终端工具。
-> 注 2：goose（Block 的开源 agent）官方安装脚本地址已失效（仓库已改名），安装方式未核实，暂未收录。
+> 完整网址随时可查：`node index.js --urls`
+> 注：DeepSeek Harness (dsh) 官方引擎不单列——DeepSeek-CLI 已内置，且官方是 Web 版而非终端工具。
 
-## 版本拉取与离线兜底
+## 🔧 环境自动检测 + 区域源切换
 
-- 版本从官方源实时拉取：npm registry / PyPI / GitHub raw。
-- 结果缓存到 `.version-cache.json`；网络不可达时自动回退缓存并标注「(缓存)」。
+- `--doctor`：检测 Node/npm/git/python/pip，缺什么自动装什么（git/python 走 winget）
+- `--region`：自动识别国内/国外 IP——国内自动用 npmmirror/清华 TUNA，国外用官方源
+- Node 缺失时 `启动安装平台.cmd` 自动下载便携版（官方源失败自动切国内镜像）
 
-## 安全说明
+## 🪳 吉祥物：小强（原创，无商标风险）
 
-- 安装会执行 `npm install -g ...`、`pip install ...` 或官方一行安装脚本（`irm ... | iex`）——与手动安装完全一致。
-- DeepSeek CLI 的安装脚本会下载便携 Node 并写入 `%LOCALAPPDATA%\DeepSeek-CLI`、全局安装 `@deepseek-ai/dsh`。
-- 卸载备份复制配置/凭证到 `%USERPROFILE%\.ai-cli-platform\backups\`，仅保存在本机，请妥善保管、用完可删。
-- API Key 以明文保存在 `%USERPROFILE%\.ai-cli-platform\api-keys.json`，**不要**提交到任何仓库。
-- 注册表是静态 JS（`registry.js`），新增工具 = 加一条记录；**添加前请先核对官方来源**。
+平台吉祥物是**横着爬的胖小强**（蟑螂，见 `assets/logo.txt` ASCII 版 / `assets/logo.svg` 矢量版）。
+蟑螂是通用动物形象，**不是任何公司/产品的吉祥物或标志**，无商标风险，可放心使用。
 
-## 🌍 社区
+## 🔐 安全说明
 
-- 本仓库：<https://github.com/jincheng3870682453-hash/ai-cli-hub>（提 issue / PR / star ⭐）
-- 作者 GitHub：<https://github.com/jincheng3870682453-hash>
-- 姊妹项目 DeepSeek CLI：<https://github.com/jincheng3870682453-hash/DeepSeek-CLI>（基于 DeepSeek Harness 的终端 Agent）
+- 安装执行 `npm install -g ...` / `pip install ...` / 官方一行脚本——与手动安装完全一致
+- API Key 以 **DPAPI 加密**保存，仅本机可解；请勿把 `api-keys.json` 提交到任何仓库
+- 卸载备份含配置/凭证，仅保存在本机，用完可删
+- 注册表是静态 JS（`registry.js`），新增工具前**先核对官方来源**
 
-## 新增工具（3 步）
+## ❓ FAQ
 
-1. 在 `registry.js` 的 `TOOLS` 数组加一条：
-   - `kind: "npm"`：填官方 `pkg` 和 `bin`；
-   - `kind: "pip"`：填 PyPI 包名和 `bin`；
-   - `kind: "ps1-oneliner"`：填 `repo` / `branch` / `onelinerUrl` / `bin`。
-   - 顺手填 `dataDirs`（用户数据目录，卸载前会备份）。
-2. 用 `node index.js --refresh` 确认能拉到版本。
-3. `node index.js --info <id>` 确认详情正确。
+**Q：没有 Node.js 怎么办？**
+双击 `启动安装平台.cmd`，会自动下载便携版 Node（国内自动走 npmmirror 镜像）。
+
+**Q：国内网络拉不动 GitHub？**
+平台自动检测区域并切换镜像；工具安装走 npmmirror/TUNA，无需手动配置。
+
+**Q：我没有某家公司的 Key，能用吗？**
+可以。用任一 OpenAI 兼容 Key（DeepSeek/Kimi/智谱/硅基流动…）即可接入 Codex、OpenCode 等；
+Anthropic 系工具走 `/anthropic` 兼容端点。真不兼容的组合会给官方文档 + 替代方案。
+
+**Q：Key 会被上传吗？**
+不会。Key 只存在你本机（DPAPI 加密），平台不联网上传任何凭证。
+
+## 🤝 贡献与社区
+
+- 本仓库：[github.com/jincheng3870682453-hash/ai-cli-hub](https://github.com/jincheng3870682453-hash/ai-cli-hub)（提 Issue / PR / Star ⭐）
+- 作者：[github.com/jincheng3870682453-hash](https://github.com/jincheng3870682453-hash)
+- 姊妹项目 [DeepSeek CLI](https://github.com/jincheng3870682453-hash/DeepSeek-CLI)（基于 DeepSeek Harness 的终端 Agent）
+
+**新增工具（3 步）**：在 `registry.js` 的 `TOOLS` 数组加一条（`kind: npm|pip|ps1-oneliner`，填官方 `pkg`/`bin`/`dataDirs`）→ `node index.js --refresh` 验证版本 → `--info <id>` 确认详情。
+
+## 📄 License
+
+[MIT](LICENSE) © 2026 jincheng3870682453-hash
+
+---
+
+📖 版本历史见 [CHANGELOG.md](CHANGELOG.md)
