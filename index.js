@@ -452,7 +452,7 @@ function fail(msg) {
  *   - 其他任何输入     → "remind"  仅提醒一次「请按 w 或者 n」，不做任何事
  */
 function decideConfirm(key) {
-  if (key.ctrl && key.name === "c") return "exit";
+  if (key.ctrl && (key.name === "c" || key.name === "q")) return "exit";
   const seq = key.sequence ?? "";
   if (seq === "\u001b") return "cancel"; // Esc
   if (seq === "w") return "confirm";
@@ -488,7 +488,8 @@ function pickMenu(items) {
       if (key.name === "up") sel = (sel - 1 + items.length) % items.length;
       else if (key.name === "down") sel = (sel + 1) % items.length;
       else if (key.name === "return") return done(items[sel].value);
-      else if (key.name === "q" || key.name === "escape" || (key.ctrl && key.name === "c")) return done(null);
+      else if (key.name === "q" || key.name === "escape" || (key.ctrl && (key.name === "c" || key.name === "q")))
+        return done(null);
       draw();
     };
     process.stdin.on("keypress", handler);
@@ -754,7 +755,7 @@ async function runToolListUI() {
       doInfo(TOOLS[selected]);
     } else if (key.name === "r") {
       doRefresh();
-    } else if (key.name === "q" || (key.ctrl && key.name === "c")) {
+    } else if (key.name === "q" || (key.ctrl && (key.name === "c" || key.name === "q"))) {
       exit();
     }
   });
