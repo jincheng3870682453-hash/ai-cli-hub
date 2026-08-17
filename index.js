@@ -670,7 +670,7 @@ async function runKeysMenu() {
     if (!choice || choice === "back") return;
     if (choice === "add") {
       const provider = await pickMenu(
-        PROVIDERS.map((p) => ({ label: `${p.name}  ${keys[p.id]?.key ? paint(C.green, "✓ " + maskKey(keys[p.id].key)) : paint(C.dim, "未配置")}`, value: p.id }))
+        PROVIDERS.map((p) => ({ label: `${p.name}  ${keys[p.id]?.key ? paint(C.green, "✓ " + maskKey(keys[p.id].key)) : paint(C.dim, t("api_no_key"))}`, value: p.id }))
       );
       if (!provider) continue;
       const key = await promptKeys(t("wiz_key_prompt", { provider: PROVIDER_BY_ID.get(provider).name }) + "\n", { mask: true });
@@ -1001,8 +1001,12 @@ async function main() {
       return cliLaunch();
     case "--api":
       return cliApi(args[1], args[2], args[3]);
-    case "--compat":
-      return cliCompat(args[1], args[3]); // --compat <target> --provider <id>
+    case "--compat": {
+      // 两种写法都支持：--compat <target> --provider <id> 或 --compat <target> <id>
+      const pIdx = args.indexOf("--provider");
+      const provider = pIdx >= 0 ? args[pIdx + 1] : args[2];
+      return cliCompat(args[1], provider);
+    }
     case "--version":
     case "-v":
       console.log(`ai-cli-hub v${PLATFORM_VERSION}`);
