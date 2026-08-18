@@ -117,8 +117,14 @@ section("兼容层与启动环境");
   const { TOOLS } = require(path.join(ROOT, "registry.js"));
   const ds = PROVIDER_BY_ID.get("deepseek");
   const r1 = buildLaunchEnv({ id: "codex" }, ds, "sk-test", "deepseek-v4-pro");
-  check("codex → OPENAI_API_KEY/BASE_URL",
-    r1.env && r1.env.OPENAI_API_KEY === "sk-test" && r1.env.OPENAI_BASE_URL === "https://api.deepseek.com");
+  const r1args = (r1.args || []).join(" ");
+  check("codex → OPENAI_API_KEY + -c 覆盖 provider",
+    r1.env && r1.env.OPENAI_API_KEY === "sk-test"
+      && r1args.includes("model=deepseek-v4-pro")
+      && r1args.includes("model_provider=deepseek")
+      && r1args.includes("model_providers.deepseek.base_url=https://api.deepseek.com")
+      && r1args.includes("model_providers.deepseek.env_key=OPENAI_API_KEY")
+      && r1args.includes("wire_api=responses"));
   const r2 = buildLaunchEnv({ id: "claude-code" }, ds, "sk-test", "deepseek-v4-pro");
   check("claude-code → /anthropic 端点",
     r2.env && r2.env.ANTHROPIC_BASE_URL === "https://api.deepseek.com/anthropic");

@@ -350,6 +350,8 @@ function cliCompat(target, providerId) {
   console.log(paint(C.green, t("compat_generated", { target: built.target.name, provider: provider.name })));
   console.log(`  ${t("compat_env_file", { file: built.file })}`);
   for (const line of built.lines) console.log(`    ${paint(C.cyan, line)}`);
+  if (built.command) console.log(`  ${paint(C.cyan, t("compat_command", { cmd: built.command }))}`);
+  if (built.target.note) console.log(`  ${paint(C.dim, built.target.note)}`);
   console.log(`  ${paint(C.dim, t("compat_written", { file: built.file }))}`);
   console.log(`  ${paint(C.dim, t("compat_apply_hint", { file: built.file, k: "KEY" }))}`);
   console.log(`  ${paint(C.dim, t("compat_note_env"))}`);
