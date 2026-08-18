@@ -48,7 +48,7 @@ section("i18n 双语键完整性");
   const used = new Set();
   for (const f of ["index.js", "lib/frame.js", "lib/tools.js", "lib/wizard.js", "lib/launch.js"]) {
     const c = fs.readFileSync(path.join(ROOT, f), "utf8");
-    for (const m of c.matchAll(/t\("(\w+)"/g)) used.add(m[1]);
+    for (const m of c.matchAll(/\bt\("(\w+)"/g)) used.add(m[1]);
   }
   const missingZh = [...used].filter((k) => !zh.has(k));
   const missingEn = [...used].filter((k) => !en.has(k));

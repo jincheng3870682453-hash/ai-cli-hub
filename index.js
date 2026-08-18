@@ -23,6 +23,7 @@ const readline = require("node:readline");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
+const { spawnSync } = require("node:child_process");
 const { TOOLS, BY_ID } = require("./registry.js");
 const { refreshAll, cachedAll } = require("./lib/versions.js");
 const {
@@ -53,6 +54,35 @@ const { runWizard, promptKeys } = require("./lib/wizard.js");
 const { runLaunch } = require("./lib/launch.js");
 
 const TTY = process.stdout.isTTY;
+
+/* ─────────────── 崩溃黑匣子 ───────────────
+ * 双击 启动安装平台.cmd 时，进程一退出窗口就消失，错误永远看不到。
+ * 这里兜底：把异常写进 ~/.ai-cli-platform/crash.log，并让窗口停住。 */
+function crashReport(kind, err) {
+  const msg = `[${new Date().toISOString()}] ${kind}: ${(err && err.stack) || err}\n`;
+  try {
+    const dir = process.env.AI_CLI_PLATFORM_HOME || path.join(os.homedir(), ".ai-cli-platform");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(path.join(dir, "crash.log"), msg);
+  } catch {}
+  try {
+    process.stdout.write("\x1b[?25h"); // 恢复光标
+    const dir = process.env.AI_CLI_PLATFORM_HOME || path.join(os.homedir(), ".ai-cli-platform");
+    console.error(paint(C.red, `\n💥 未处理的错误: ${(err && err.message) || err}`));
+    console.error(paint(C.dim, `详情见 ${path.join(dir, "crash.log")}`));
+  } catch {}
+  if (process.stdin.isTTY) {
+    try {
+      process.stdin.setRawMode(false);
+    } catch {}
+    try {
+      spawnSync("cmd", ["/c", "pause"], { stdio: "inherit", shell: false });
+    } catch {}
+  }
+  process.exit(1);
+}
+process.on("uncaughtException", (err) => crashReport("uncaughtException", err));
+process.on("unhandledRejection", (err) => crashReport("unhandledRejection", err));
 
 /** 区域检测（进程内共享一次，带磁盘缓存） */
 let regionPromise = null;

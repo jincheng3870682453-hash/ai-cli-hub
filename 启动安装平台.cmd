@@ -37,4 +37,5 @@ if not defined NODE (
 )
 
 "%NODE%" "%APP%index.js" %*
+if errorlevel 1 pause
 endlocal
