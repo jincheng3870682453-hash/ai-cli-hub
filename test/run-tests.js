@@ -113,17 +113,21 @@ section("nodeBuild 平台/架构映射");
 section("兼容层与启动环境");
 {
   const { buildLaunchEnv } = require(path.join(ROOT, "lib/launch.js"));
-  const { PROVIDER_BY_ID, targetSupportsProvider } = require(path.join(ROOT, "lib/api.js"));
+  const {
+    PROVIDER_BY_ID,
+    codexCompatInfo,
+    targetSupportsProvider,
+  } = require(path.join(ROOT, "lib/api.js"));
   const { TOOLS } = require(path.join(ROOT, "registry.js"));
   const ds = PROVIDER_BY_ID.get("deepseek");
   const r1 = buildLaunchEnv({ id: "codex" }, ds, "sk-test", "deepseek-v4-pro");
   const r1args = (r1.args || []).join(" ");
-  check("codex → OPENAI_API_KEY + -c 覆盖 provider",
+  check("codex → OPENAI_API_KEY + -c 覆盖 provider(内置名加 -custom, wire_api=responses)",
     r1.env && r1.env.OPENAI_API_KEY === "sk-test"
       && r1args.includes("model=deepseek-v4-pro")
-      && r1args.includes("model_provider=deepseek")
-      && r1args.includes("model_providers.deepseek.base_url=https://api.deepseek.com")
-      && r1args.includes("model_providers.deepseek.env_key=OPENAI_API_KEY")
+      && r1args.includes("model_provider=deepseek-custom")
+      && r1args.includes("model_providers.deepseek-custom.base_url=https://api.deepseek.com")
+      && r1args.includes("model_providers.deepseek-custom.env_key=OPENAI_API_KEY")
       && r1args.includes("wire_api=responses"));
   const r2 = buildLaunchEnv({ id: "claude-code" }, ds, "sk-test", "deepseek-v4-pro");
   check("claude-code → /anthropic 端点",
@@ -140,9 +144,36 @@ section("兼容层与启动环境");
     }
   }
   check("13/13 工具启动环境可生成", allOk);
+  const oa = PROVIDER_BY_ID.get("openai");
+  const roa = buildLaunchEnv({ id: "codex" }, oa, "sk-test", "gpt-5.2");
+  const roaArgs = (roa.args || []).join(" ");
+  check("codex+openai → 官方端点用 responses(保留 ID 加 -custom)",
+    roaArgs.includes("model_provider=openai-custom")
+      && roaArgs.includes("base_url=https://api.openai.com/v1")
+      && roaArgs.includes("wire_api=responses"));
+  // DeepSeek V4 原生提供 Responses 端点，可直接接入 codex
+  const dsCompat = codexCompatInfo("deepseek");
+  check("deepseek V4 → 原生支持 responses，可接 codex",
+    dsCompat.ok === true && dsCompat.wireApi === "responses");
+  // 智谱 GLM 只提供 Chat Completions、无 /responses 端点 → 经内建网关自动协议转换，真正可用
+  const zhipu = PROVIDER_BY_ID.get("zhipu");
+  const rz = buildLaunchEnv({ id: "codex" }, zhipu, "sk-test", "glm-5.2");
+  const zc = codexCompatInfo("zhipu");
+  check("codex+智谱GLM → 走网关(ok=true, gateway 携带上游地址与命令模板)",
+    zc.ok === true
+      && zc.gateway === true
+      && zc.upstreamBase === "https://open.bigmodel.cn/api/paas/v4"
+      && rz.gateway
+      && Array.isArray(rz.gateway.argsTemplate)
+      && rz.gateway.argsTemplate.some((a) => a.includes("{baseUrl}")));
+  // Anthropic 使用自有协议，内建网关也无法转换 → blocked
+  const claude = PROVIDER_BY_ID.get("anthropic");
+  const rc = buildLaunchEnv({ id: "codex" }, claude, "sk-test", "claude-opus-4.7");
+  const cc = codexCompatInfo("anthropic");
+  check("codex+Anthropic → 自有协议无法转换，标记 blocked",
+    cc.ok === false && rc.blocked && typeof rc.blocked.reason === "string");
   check("deepseek → codex 兼容", targetSupportsProvider("codex", ds).ok);
   check("deepseek → claude-code 兼容(Anthropic端点)", targetSupportsProvider("claude-code", ds).ok);
-  const oa = PROVIDER_BY_ID.get("openai");
   check("openai → claude-code 不兼容(预期)", !targetSupportsProvider("claude-code", oa).ok);
 }
 

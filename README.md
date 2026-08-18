@@ -11,7 +11,7 @@
 一个自动从**官方源**拉取各家 AI 终端编程工具的安装平台：
 一键安装、验证、卸载（先备份数据）、**任意 API Key 无缝接入任意工具**。
 
-[![Version](https://img.shields.io/badge/Version-0.2.3-4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub/releases)
+[![Version](https://img.shields.io/badge/Version-0.2.4-4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub/releases)
 [![Tests](https://img.shields.io/github/actions/workflow/status/jincheng3870682453-hash/ai-cli-hub/test.yml?branch=master&label=Tests&logo=github&color=4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub/actions)
 [![License](https://img.shields.io/badge/License-MIT-4D6BFE)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub)
@@ -30,7 +30,7 @@
 |---|---|---|
 | 🛡️ **真伪校验** | 注册表所有包名/仓库**人工核对官方文档**，拒绝冒名包（`kimi-cli`≠`@moonshot-ai/kimi-code`） | 零依赖 |
 | 🔑 **API Key 加密存储** | Windows **DPAPI** 加密落盘，仅本机可解 | 9 家提供商 |
-| 🔌 **万能兼容层** | **任意公司的 Key 接任意工具**（OpenAI/Anthropic 协议自动适配，如 DeepSeek Key 直接驱动 Codex） | 13/13 工具全覆盖 |
+| 🔌 **万能兼容层** | **任意公司的 Key 接任意工具**（OpenAI/Anthropic 协议自动适配；Codex 只认 Responses 协议，GLM/Kimi 等经**内建网关**自动转 Chat Completions 真正可用） | 13/13 工具全覆盖 |
 | 🧭 **三步引导向导** | 选提供商 → 输 Key → 选模型（54 个）→ 选工具 → 自动装 + 自动配 | 零门槛 |
 | 🚀 **一键启动** | 选模型 → 选 Key → 选工具 → **带着你的配置直接启动** | 退出自动返回 |
 | 🌐 **中/英双语** | 全套界面 150+ 文案键 zh/en 全覆盖，`--lang` 一键切换 | 汉化友好 |
@@ -41,7 +41,7 @@
 ## 🖥️ 界面预览
 
 ```text
-🪳 AI CLI 安装平台 v0.2.3 — 主菜单
+🪳 AI CLI 安装平台 v0.2.4 — 主菜单
 
  1. 引导配置（API Key → 模型 → 工具，自动适配）
  2. 下载 / 拉取工具（工具列表）
@@ -171,7 +171,23 @@ node index.js --compat codex --provider deepseek
 - **自带配置界面**（给出命令）：kimi-code（`kimi /provider`）/ aiconn / 智谱助手
 
 Anthropic 协议（claude-code）自动走 `/anthropic` 兼容端点（DeepSeek / Kimi / 智谱均提供）。
-不兼容组合给出官方文档 + 替代方案（如 OpenRouter 一个 Key 通吃所有协议），绝不让你卡住。
+真正无法适配的组合（Anthropic / Gemini 等自有协议，内建网关也翻译不了）会给出官方文档 + 替代方案（如 OpenRouter 一个 Key 通吃所有协议），绝不让你卡住。
+
+### 🛰️ Codex 协议网关（重点）
+
+Codex CLI 自 2026-02 起**只认 OpenAI Responses 协议**（`wire_api` 枚举只剩 `responses`），
+而 GLM、Kimi、通义、硅基流动、OpenRouter 等只提供 OpenAI 兼容的 **Chat Completions** 端点。
+
+为此平台内置了一个**零依赖的协议转换网关**（`lib/proxy.js`，纯 Node 内置 `http/https`，
+无需像 LiteLLM 那样装 Python + pip + 写 YAML）：
+
+- 一键启动 Codex + 上述厂商时，平台**自动在本地拉起代理**，`base_url` 指向本地端口，
+  把 Codex 的 Responses 请求实时翻译成 Chat Completions 转发上游，再把响应翻译回 Responses；
+- Codex 退出后代理**自动回收**，用户全程无感知、零手动配置；
+- 静态 `--compat` 命令因网关端口运行时动态分配、无法预知，会提示"回到主菜单用一键启动"，
+  而不是打印带占位符的无效命令。
+
+> 目前仍保留明确提示的只有 **Anthropic / Gemini**（自有协议，网关无法翻译）；改用 OpenAI 兼容厂商或 DeepSeek/OpenAI 即可原生接入。
 
 ## 🗑️ 卸载 = 先备份，再确认，才卸载
 
@@ -228,7 +244,10 @@ Anthropic 协议（claude-code）自动走 `/anthropic` 兼容端点（DeepSeek 
 
 **Q：我没有某家公司的 Key，能用吗？**
 可以。用任一 OpenAI 兼容 Key（DeepSeek/Kimi/智谱/硅基流动…）即可接入 Codex、OpenCode 等；
-Anthropic 系工具走 `/anthropic` 兼容端点。真不兼容的组合会给官方文档 + 替代方案。
+Anthropic 系工具走 `/anthropic` 兼容端点。真不兼容的组合（Anthropic/Gemini 自有协议）会给官方文档 + 替代方案。
+
+> 补充：Codex 只认 OpenAI Responses 协议，GLM/Kimi/通义/硅基流动/OpenRouter 等只提供 Chat Completions——
+> 现在平台**内建协议网关**会自动转换，这些厂商在 Codex 里也能直接用了（一键启动自动起代理，退出回收）。
 
 **Q：Key 会被上传吗？**
 不会。Key 只存在你本机（DPAPI 加密），平台不联网上传任何凭证。
@@ -268,8 +287,8 @@ Node 标准库实现，非 Windows 可跑基本功能，但加密会退化为明
 
 ## 🧪 测试与 CI
 
-- 单元测试套件：`node test/run-tests.js`（42 项，CI 安全——纯逻辑、不联网、不碰密钥）
-  覆盖 i18n 键完整性、注册表/适配矩阵、卸载确认、平台/架构映射、兼容层、镜像源、备份模块
+- 单元测试套件：`node test/run-tests.js`（46 项，CI 安全——纯逻辑、不联网、不碰密钥）
+  覆盖 i18n 键完整性、注册表/适配矩阵、卸载确认、平台/架构映射、兼容层（含 Codex 网关接入判定）、镜像源、备份模块
 - **GitHub Actions 自动跑**：每次 push / PR 在 **Windows + Linux × Node 18/20/22** 六种组合下跑全部测试
   （`.github/workflows/test.yml`），徽章实时显示状态
 - 想加测试：往 `test/run-tests.js` 里加一个 `check(...)` 即可

@@ -160,7 +160,12 @@ const TOOLS = [
     bin: "aider",
     verifyArgs: ["--version"],
     dataDirs: [{ path: "~/.aider.conf.yml", note: "配置文件（若存在）" }],
-    note: "经典的开源终端结对编程工具，AI pair programming in your terminal。需要本机有 Python/pip。",
+    // aider-chat 最新版（0.86.x）要求 Python >=3.10 且 <3.13，上游尚未适配 Python 3.13。
+    // 不声明时 pip 在 3.13 上会静默回退到 2023 年的 0.16.0，其依赖 numpy==1.24.3
+    // 无法在 3.13 上源码编译，安装必失败。装前主动检测并给用户明确指引。
+    requiresPython: ">=3.10,<3.13",
+    pythonSuggestion: "安装 Python 3.10–3.12（https://www.python.org/downloads/）后重试",
+    note: "经典的开源终端结对编程工具，AI pair programming in your terminal。需要本机有 Python/pip（需 3.10–3.12）。",
     homepage: "https://aider.chat",
   },
   {

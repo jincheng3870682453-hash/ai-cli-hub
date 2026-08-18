@@ -1,6 +1,6 @@
 {
   "name": "ai-cli-hub",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "private": true,
   "description": "One-click install platform for AI coding CLIs — official sources, verified, safe (Kimi Code, Claude Code, Codex, OpenCode, Gemini CLI, Qwen Code, Deep Code, Aider...).",
   "license": "MIT",

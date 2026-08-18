@@ -11,7 +11,7 @@
 An install platform that automatically pulls AI coding terminal tools from **verified official sources**:
 one-click install, verify, uninstall (data backed up first), and **any API key seamlessly drives any tool**.
 
-[![Version](https://img.shields.io/badge/Version-0.2.3-4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub/releases)
+[![Version](https://img.shields.io/badge/Version-0.2.4-4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub/releases)
 [![Tests](https://img.shields.io/github/actions/workflow/status/jincheng3870682453-hash/ai-cli-hub/test.yml?branch=master&label=Tests&logo=github&color=4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub/actions)
 [![License](https://img.shields.io/badge/License-MIT-4D6BFE)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Windows-4D6BFE)](https://github.com/jincheng3870682453-hash/ai-cli-hub)
@@ -30,7 +30,7 @@ one-click install, verify, uninstall (data backed up first), and **any API key s
 |---|---|---|
 | 🛡️ **Verified official sources** | Every package/repo in the registry is **manually cross-checked against official docs** — no squatted packages (`kimi-cli` ≠ `@moonshot-ai/kimi-code`) | Zero npm deps |
 | 🔑 **Encrypted API keys** | Stored with Windows **DPAPI**, decryptable only on this machine | 9 providers |
-| 🔌 **Universal compat layer** | **Any provider's key drives any tool** (OpenAI/Anthropic protocols auto-adapted — e.g. a DeepSeek key directly powers Codex) | 13/13 tools |
+| 🔌 **Universal compat layer** | **Any provider's key drives any tool** (OpenAI/Anthropic protocols auto-adapted; Codex only speaks Responses, so GLM/Kimi etc. are **auto-bridged** via a built-in gateway to Chat Completions) | 13/13 tools |
 | 🧭 **3-step guided wizard** | Pick provider → enter key → pick model (54) → pick tool → auto-install + auto-configure | Zero learning curve |
 | 🚀 **One-click launch** | Pick model → key → tool → **launch directly with your config** | Auto-returns on exit |
 | 🌐 **Bilingual zh/en** | 150+ UI strings in both languages, `--lang` to switch | — |
@@ -41,7 +41,7 @@ one-click install, verify, uninstall (data backed up first), and **any API key s
 ## 🖥️ UI Preview
 
 ```text
-🪳 AI CLI Install Platform v0.2.3 — Main menu
+🪳 AI CLI Install Platform v0.2.4 — Main menu
 
  1. Guided setup (API key → model → tool, auto-adapt)
  2. Download / fetch tools (tool list)
@@ -167,7 +167,19 @@ All 13 tools have an adapter, chosen automatically from three strategies:
 - **Config file** (written directly): deep-code (`~/.deepcode/settings.json`, original auto-backed up as `.bak`)
 - **Built-in config UI** (command shown): kimi-code (`kimi /provider`) / aiconn / Zhipu helper
 
-Anthropic-protocol tools (claude-code) automatically use the `/anthropic` compatible endpoint (provided by DeepSeek / Kimi / Zhipu). Incompatible combos never leave you stuck — you get the official docs plus alternatives (e.g. one OpenRouter key for all protocols).
+Anthropic-protocol tools (claude-code) automatically use the `/anthropic` compatible endpoint (provided by DeepSeek / Kimi / Zhipu). Truly incompatible combos (Anthropic / Gemini's own protocols — the built-in gateway can't translate them either) never leave you stuck — you get the official docs plus alternatives (e.g. one OpenRouter key for all protocols).
+
+### 🛰️ Codex protocol gateway (highlight)
+
+Codex CLI has spoken **only OpenAI's Responses protocol** since 2026-02 (`wire_api` only accepts `responses` now), while GLM, Kimi, Qwen, SiliconFlow and OpenRouter only expose **OpenAI-compatible Chat Completions** endpoints.
+
+To bridge this the platform ships a **zero-dependency protocol gateway** (`lib/proxy.js`, plain Node `http/https` — no Python + pip + YAML setup like LiteLLM needs):
+
+- When you one-click launch Codex with one of those providers, the platform **auto-spins up a local proxy** and points `base_url` at the local port, translating Codex's Responses requests into Chat Completions on the fly and translating the responses back;
+- The proxy **auto-reclaims** when Codex exits — fully transparent, zero manual config;
+- The static `--compat` command can't predict the runtime port, so it tells you to use One-Click Launch instead of printing a placeholder command.
+
+> Only **Anthropic / Gemini** (own protocols the gateway can't translate) still get a clear notice; switch to an OpenAI-compatible or DeepSeek/OpenAI provider for native access.
 
 ## 🗑️ Uninstall = Backup First, Confirm, Then Remove
 
@@ -223,7 +235,9 @@ Double-click `启动安装平台.cmd` — it auto-downloads a portable Node (CN 
 The platform auto-detects your region and switches mirrors; tool installs go through npmmirror/TUNA — no manual config needed.
 
 **Q: I don't have a key from that company — can I still use it?**
-Yes. Any OpenAI-compatible key (DeepSeek/Kimi/Zhipu/SiliconFlow…) can drive Codex, OpenCode, etc.; Anthropic tools use the `/anthropic` compatible endpoint. Truly incompatible combos get official docs + alternatives.
+Yes. Any OpenAI-compatible key (DeepSeek/Kimi/Zhipu/SiliconFlow…) can drive Codex, OpenCode, etc.; Anthropic tools use the `/anthropic` compatible endpoint. Truly incompatible combos (Anthropic/Gemini own protocols) get official docs + alternatives.
+
+> Note: Codex only speaks OpenAI Responses, while GLM/Kimi/Qwen/SiliconFlow/OpenRouter only offer Chat Completions — the platform's **built-in gateway** now auto-translates, so those providers work directly in Codex too (one-click launch auto-spins the proxy, reclaimed on exit).
 
 **Q: Will my key be uploaded?**
 No. Keys live only on your machine (DPAPI-encrypted); the platform never uploads any credential.
@@ -259,8 +273,8 @@ Tool: add one entry in `registry.js` and verify the official source (3 steps in 
 
 ## 🧪 Testing & CI
 
-- Unit test suite: `node test/run-tests.js` (42 checks, CI-safe — pure logic, no network, no keys)
-  Covers i18n key completeness, registry/compat matrix, uninstall confirm, platform/arch mapping, compat layer, mirrors, backup module
+- Unit test suite: `node test/run-tests.js` (46 checks, CI-safe — pure logic, no network, no keys)
+  Covers i18n key completeness, registry/compat matrix, uninstall confirm, platform/arch mapping, compat layer (incl. Codex gateway routing), mirrors, backup module
 - **GitHub Actions runs automatically**: every push/PR tests on **Windows + Linux × Node 18/20/22** (six combos, `.github/workflows/test.yml`); the badge shows live status
 - To add tests: add a `check(...)` in `test/run-tests.js`
 

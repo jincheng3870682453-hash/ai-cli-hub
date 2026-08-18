@@ -214,6 +214,7 @@ async function cliInstall(id) {
   console.log(paint(C.cyan, t("install_start", { name: tool.name })));
   const res = installTool(tool, { stream: true, installDir: cfg.installDir, region });
   console.log(res.message);
+  if (!res.ok) return;
   const v = await verifyTool(tool);
   console.log(v.message);
 }
@@ -347,6 +348,18 @@ function cliCompat(target, providerId) {
   if (!built) return fail(t("compat_unsupported_target", { target, list: Object.keys(COMPAT_TARGETS).join(", ") }));
 
   if (built.kind === "cmd") {
+    // 走内建网关的厂商（GLM/Kimi 等）：网关端口运行时动态分配，静态命令无法预知 → 提示走一键启动
+    if (built.needsGateway) {
+      console.log(paint(C.cyan, t("compat_needs_gateway", { provider: provider.name })));
+      if (built.target.docs) console.log(`  ${t("info_homepage")} ${built.target.docs}`);
+      return;
+    }
+    if (built.blocked) {
+      console.log(paint(C.red, t("launch_blocked", { tool: built.target.name, provider: provider.name })));
+      console.log(paint(C.yellow, built.blocked.reason));
+      console.log(paint(C.dim, t("launch_blocked_hint")));
+      return;
+    }
     console.log(paint(C.green, t("wiz_compat_cmd")));
     console.log(`  ${paint(C.cyan, `  ${built.target.cmd}`)}`);
     if (built.target.note) console.log(`  ${paint(C.dim, built.target.note)}`);
@@ -839,13 +852,22 @@ async function runToolListUI() {
     const region = await ensureRegion();
     busy = true;
     fullRender();
+    let installFailed = false;
     await runChild(() => {
       console.log(paint(C.cyan, "\n" + t("install_start", { name: tool.name })));
       const res = installTool(tool, { stream: true, installDir, region });
       console.log(res.message);
+      installFailed = !res.ok;
     });
     busy = false;
     await refreshStatus();
+    if (installFailed) {
+      // 安装失败：停留让用户看到原因，再返回列表
+      suppressKeys = true;
+      console.log(paint(C.yellow, `\n${t("press_any_key")}`));
+      await waitAnyKey();
+      suppressKeys = false;
+    }
     fullRender();
   };
 
