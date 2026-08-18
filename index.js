@@ -519,6 +519,10 @@ function pickMenu(items) {
       else if (key.name === "return") return done(items[sel].value);
       else if (key.name === "q" || key.name === "escape" || (key.ctrl && (key.name === "c" || key.name === "q")))
         return done(null);
+      else if (/^[1-9]$/.test(key.sequence || "") && items[Number(key.sequence) - 1]) {
+        // 数字键直接选中（菜单项本身带 1./2./3. 编号，用户自然会按数字）
+        return done(items[Number(key.sequence) - 1].value);
+      }
       draw();
     };
     process.stdin.on("keypress", handler);
